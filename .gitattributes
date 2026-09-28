@@ -1,0 +1,10 @@
+.prettierrc export-ignore
+.prettierignore export-ignore
+.editorconfig export-ignore
+
+AGENTS.md export-ignore
+GUIDELINES.md export-ignore
+INSTRUCTIONS.md export-ignore
+REQUIREMENTS.md export-ignore
+skills/ export-ignore
+transcripts/ export-ignore
