@@ -20,8 +20,13 @@ def find_user(user_id):
     return GavelUser.objects(id=object_id, active=True).first() if object_id else None
 
 
-def list_campaigns():
-    return list(Campaign.objects.order_by("-updated_at"))
+def list_campaigns(limit=50, cursor=None):
+    query = Campaign.objects
+    if cursor:
+        marker = Campaign.objects(id=valid_id(cursor)).first()
+        if marker and marker.updated_at:
+            query = query.filter(updated_at__lt=marker.updated_at)
+    return list(query.order_by("-updated_at", "-id").limit(min(int(limit) if limit else 50, 100)))
 
 
 def find_campaign(campaign_id):
@@ -29,8 +34,13 @@ def find_campaign(campaign_id):
     return Campaign.objects(id=object_id).first() if object_id else None
 
 
-def list_submissions(campaign_id):
-    return list(Submission.objects(campaign_id=campaign_id).order_by("-created_at"))
+def list_submissions(campaign_id, limit=50, cursor=None):
+    query = Submission.objects(campaign_id=campaign_id)
+    if cursor:
+        marker = Submission.objects(id=valid_id(cursor)).first()
+        if marker and marker.created_at:
+            query = query.filter(created_at__lt=marker.created_at)
+    return list(query.order_by("-created_at", "-id").limit(min(int(limit) if limit else 50, 100)))
 
 
 def find_submission(submission_id):
@@ -38,14 +48,21 @@ def find_submission(submission_id):
     return Submission.objects(id=object_id).first() if object_id else None
 
 
-def list_reviews(campaign_id=None):
+def list_reviews(campaign_id=None, limit=50, cursor=None, status=None):
     query = ReviewAssignment.objects
     if campaign_id:
         object_id = valid_id(campaign_id)
         if not object_id:
             return []
         query = query(campaign_id=object_id)
-    return list(query.order_by("status", "created_at"))
+    if status and status in ("available", "claimed", "completed"):
+        query = query.filter(status=status)
+    if cursor:
+        marker = ReviewAssignment.objects(id=valid_id(cursor)).first()
+        if marker and marker.created_at:
+            query = query.filter(created_at__lt=marker.created_at)
+    # Bounded pagination with stable ordering; status filter applied before cursor
+    return list(query.order_by("-created_at", "-id").limit(min(int(limit) if limit else 50, 100)))
 
 
 def find_review(review_id):
@@ -53,14 +70,18 @@ def find_review(review_id):
     return ReviewAssignment.objects(id=object_id).first() if object_id else None
 
 
-def list_adjudications(campaign_id=None):
+def list_adjudications(campaign_id=None, limit=50, cursor=None):
     query = Adjudication.objects
     if campaign_id:
         object_id = valid_id(campaign_id)
         if not object_id:
             return []
         query = query(campaign_id=object_id)
-    return list(query.order_by("status", "-updated_at"))
+    if cursor:
+        marker = Adjudication.objects(id=valid_id(cursor)).first()
+        if marker and marker.updated_at:
+            query = query.filter(updated_at__lt=marker.updated_at)
+    return list(query.order_by("-updated_at", "-id").limit(min(int(limit) if limit else 50, 100)))
 
 
 def find_adjudication(adjudication_id):

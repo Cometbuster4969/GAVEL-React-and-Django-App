@@ -38,7 +38,10 @@ def me(request):
 @api_view(["GET"])
 @require_auth()
 def campaigns(request):
-    return Response({"data": services.list_campaigns(request.gavel_user)})
+    limit = request.query_params.get("limit")
+    cursor = request.query_params.get("cursor")
+    data = services.list_campaigns(request.gavel_user, limit=limit, cursor=cursor)
+    return Response({"data": data})
 
 
 @api_view(["POST"])
@@ -92,7 +95,10 @@ def published_results(request, campaign_id):
 @require_auth("administrator", "owner", "adjudicator")
 def export_results(request, campaign_id):
     publication = services.get_published_results(request.gavel_user, campaign_id)
-    if request.query_params.get("format", "json").lower() != "csv":
+    fmt = request.query_params.get("format", "json")
+    if fmt is None:
+        fmt = "json"
+    if fmt.lower() != "csv":
         return Response({"data": publication})
     response = HttpResponse(content_type="text/csv")
     response["Content-Disposition"] = f'attachment; filename="gavel-results-{campaign_id}.csv"'
@@ -107,7 +113,10 @@ def export_results(request, campaign_id):
 @require_auth()
 def campaign_submissions(request, campaign_id):
     if request.method == "GET":
-        return Response({"data": services.list_submissions(request.gavel_user, campaign_id)})
+        limit = request.query_params.get("limit")
+        cursor = request.query_params.get("cursor")
+        data = services.list_submissions(request.gavel_user, campaign_id, limit=limit, cursor=cursor)
+        return Response({"data": data})
     items = body_object(request).get("items")
     return Response({"data": services.ingest_submissions(request.gavel_user, campaign_id, items)}, status=202)
 
@@ -133,7 +142,10 @@ def retry_submission(request, campaign_id, submission_id):
 def reviews(request):
     campaign_id = request.query_params.get("campaignId")
     status = request.query_params.get("status")
-    return Response({"data": services.list_reviews(request.gavel_user, campaign_id, status)})
+    limit = request.query_params.get("limit")
+    cursor = request.query_params.get("cursor")
+    data = services.list_reviews(request.gavel_user, campaign_id, status, limit=limit, cursor=cursor)
+    return Response({"data": data})
 
 
 @api_view(["POST"])
@@ -157,7 +169,10 @@ def submit_review(request, review_id):
 @api_view(["GET"])
 @require_auth("administrator", "adjudicator", "owner")
 def adjudications(request):
-    return Response({"data": services.list_adjudications(request.gavel_user, request.query_params.get("campaignId"))})
+    limit = request.query_params.get("limit")
+    cursor = request.query_params.get("cursor")
+    data = services.list_adjudications(request.gavel_user, request.query_params.get("campaignId"), limit=limit, cursor=cursor)
+    return Response({"data": data})
 
 
 @api_view(["POST"])
@@ -175,4 +190,10 @@ def analytics(request):
 @api_view(["GET"])
 @require_auth("administrator", "owner", "adjudicator")
 def audit(request):
-    return Response({"data": services.audit_log(request.gavel_user, request.query_params.get("cursor"))})
+    limit = request.query_params.get("limit")
+    try:
+        lim = min(int(limit), 100) if limit is not None else 60
+    except Exception:
+        lim = 60
+    data = services.audit_log(request.gavel_user, cursor=request.query_params.get("cursor"), limit=lim)
+    return Response({"data": data})

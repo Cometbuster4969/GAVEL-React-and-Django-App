@@ -1237,11 +1237,33 @@ function ReviewPage({ reviews, loading, activeReviewId, onSelect, onClaim, onRel
 												<strong>{criterion.title}</strong>
 												<label>
 													Response A
-													<input type="number" min="1" max="5" value={criterionScores[criterion.id]?.a || ""} onChange={(event) => setCriterionScores((current) => ({ ...current, [criterion.id]: { ...current[criterion.id], a: event.target.value } }))} />
+													<input
+														type="number"
+														min="1"
+														max="5"
+														value={criterionScores[criterion.id]?.a || ""}
+														onChange={(event) =>
+															setCriterionScores((current) => ({
+																...current,
+																[criterion.id]: { ...current[criterion.id], a: event.target.value },
+															}))
+														}
+													/>
 												</label>
 												<label>
 													Response B
-													<input type="number" min="1" max="5" value={criterionScores[criterion.id]?.b || ""} onChange={(event) => setCriterionScores((current) => ({ ...current, [criterion.id]: { ...current[criterion.id], b: event.target.value } }))} />
+													<input
+														type="number"
+														min="1"
+														max="5"
+														value={criterionScores[criterion.id]?.b || ""}
+														onChange={(event) =>
+															setCriterionScores((current) => ({
+																...current,
+																[criterion.id]: { ...current[criterion.id], b: event.target.value },
+															}))
+														}
+													/>
 												</label>
 											</div>
 										))}
@@ -1287,7 +1309,7 @@ function ReviewPage({ reviews, loading, activeReviewId, onSelect, onClaim, onRel
 												type="button"
 												className="button button-primary"
 												disabled={!choice || busy}
-														onClick={() => onSubmit(active, choice, notes, criterionScores)}
+												onClick={() => onSubmit(active, choice, notes, criterionScores)}
 											>
 												{busy ? "Submitting…" : "Submit evaluation"}
 												<Icon name="arrow" size={16} />
@@ -2139,10 +2161,10 @@ export default function App() {
 		const results = await Promise.allSettled(tasks);
 		const values = results.map((item) => (item.status === "fulfilled" ? item.value : null));
 		if (results[0].status === "rejected") setError(results[0].reason.message);
-		else setCampaigns(values[0] || []);
+		else setCampaigns(values[0]?.items || values[0] || []);
 		setAnalytics(values[1]);
-		setReviews(values[2] || []);
-		setAdjudications(values[3] || []);
+		setReviews(values[2]?.items || values[2] || []);
+		setAdjudications(values[3]?.items || values[3] || []);
 		setAuditEvents(values[4]?.items || values[4] || []);
 		if (results.slice(1).some((item) => item.status === "rejected")) {
 			const first = results.slice(1).find((item) => item.status === "rejected");
@@ -2356,6 +2378,11 @@ export default function App() {
 		}
 	};
 	const claimReview = async (review) => {
+		// ponytail: optimistic claim with rollback on 409 conflict
+		const prev = reviews;
+		setReviews((current) =>
+			current.map((r) => (r.id === review.id ? { ...r, status: "claimed", claimedByMe: true, claimedBy: "You" } : r)),
+		);
 		setBusy(true);
 		setError("");
 		try {
@@ -2364,12 +2391,19 @@ export default function App() {
 			await refresh();
 			setNotice("Review assignment claimed. Compare responses A and B.");
 		} catch (failure) {
+			setReviews(prev);
+			await refresh();
 			setError(failure.message);
 		} finally {
 			setBusy(false);
 		}
 	};
 	const releaseReview = async (review) => {
+		// ponytail: optimistic release with rollback
+		const prev = reviews;
+		setReviews((current) =>
+			current.map((r) => (r.id === review.id ? { ...r, status: "available", claimedByMe: false, claimedBy: null } : r)),
+		);
 		setBusy(true);
 		setError("");
 		try {
@@ -2377,6 +2411,8 @@ export default function App() {
 			await refresh();
 			setNotice("Review assignment released back to the shared queue.");
 		} catch (failure) {
+			setReviews(prev);
+			await refresh();
 			setError(failure.message);
 		} finally {
 			setBusy(false);
