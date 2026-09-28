@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<script>
+			document.documentElement.dataset.theme = "light";
+		</script>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<meta name="theme-color" content="#f6f7f3" />
+		<meta name="description" content="Gavel — auditable evaluation operations for AI-powered products." />
+		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+		<title>Gavel — Evaluation Operations</title>
+		<style>
+			html,
+			body,
+			#root {
+				min-width: 320px;
+				min-height: 100%;
+				margin: 0;
+			}
+			body {
+				background: #f6f7f3;
+				font-family: Arial, sans-serif;
+			}
+			.initial-boot {
+				display: grid;
+				position: fixed;
+				inset: 0;
+				place-content: center;
+				gap: 14px;
+				background: #17251f;
+				color: #e7eee6;
+				text-align: center;
+				font-size: 12px;
+			}
+			.initial-boot-mark {
+				display: grid;
+				width: 43px;
+				height: 43px;
+				margin: auto;
+				place-items: center;
+				border: 1px solid #607250;
+				border-radius: 12px;
+				color: #c8ef73;
+				font-size: 22px;
+			}
+		</style>
+	</head>
+	<body>
+		<div id="root"
+			><main class="initial-boot"><span class="initial-boot-mark">⌁</span><span>Opening Gavel workspace…</span></main></div
+		>
+		<script type="module" src="/src/main.jsx"></script>
+	</body>
+</html>

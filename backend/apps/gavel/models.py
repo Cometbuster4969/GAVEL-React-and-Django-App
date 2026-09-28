@@ -1,0 +1,112 @@
+from mongoengine import BooleanField, DateTimeField, DictField, Document, IntField, ListField, ObjectIdField, StringField
+
+from apps.shared.documents import TimestampedDocument
+
+
+class GavelUser(TimestampedDocument):
+    meta = {
+        "collection": "gavelusers",
+        "indexes": [{"fields": ["email"], "unique": True, "name": "gavel_email_unique_idx"}],
+    }
+
+    name = StringField(required=True, max_length=120)
+    email = StringField(required=True, max_length=254)
+    password_hash = StringField(db_field="passwordHash", required=True)
+    role = StringField(required=True, choices=("administrator", "owner", "reviewer", "adjudicator"))
+    active = BooleanField(default=True)
+
+
+class Campaign(TimestampedDocument):
+    meta = {
+        "collection": "campaigns",
+        "indexes": [{"fields": ["status", "updated_at"], "name": "campaign_status_updated_idx"}],
+    }
+
+    name = StringField(required=True, max_length=120)
+    summary = StringField(default="", max_length=500)
+    owner_id = ObjectIdField(db_field="ownerId", required=True)
+    status = StringField(default="draft", choices=("draft", "published", "running", "reviewing", "completed", "archived"))
+    version = IntField(default=1, min_value=1)
+    suite_version = IntField(db_field="suiteVersion", default=1, min_value=1)
+    rubric_version = IntField(db_field="rubricVersion", default=1, min_value=1)
+    test_cases = ListField(DictField(), db_field="testCases", default=list)
+    rubric = ListField(DictField(), default=list)
+
+
+class Submission(TimestampedDocument):
+    meta = {
+        "collection": "submissions",
+        "indexes": [
+            {"fields": ["campaign_id", "idempotency_key"], "unique": True, "name": "campaign_idempotency_unique_idx"},
+            {"fields": ["campaign_id", "status"], "name": "campaign_submission_status_idx"},
+        ],
+    }
+
+    campaign_id = ObjectIdField(db_field="campaignId", required=True)
+    case_id = StringField(db_field="caseId", required=True, max_length=80)
+    model_name = StringField(db_field="modelName", required=True, max_length=120)
+    output = StringField(required=True, max_length=12000)
+    idempotency_key = StringField(db_field="idempotencyKey", required=True, max_length=160)
+    status = StringField(default="queued", choices=("queued", "processing", "ready", "failed"))
+    attempt = IntField(default=0, min_value=0)
+    failure_reason = StringField(db_field="failureReason", default="", max_length=240)
+    force_failure = BooleanField(db_field="forceFailure", default=False)
+    rubric_version = IntField(db_field="rubricVersion", default=1, min_value=1)
+
+
+class ReviewAssignment(TimestampedDocument):
+    meta = {
+        "collection": "reviewassignments",
+        "indexes": [
+            {"fields": ["campaign_id", "pair_key"], "name": "review_pair_idx"},
+            {"fields": ["campaign_id", "pair_key", "slot"], "unique": True, "name": "review_pair_slot_unique_idx"},
+            {"fields": ["campaign_id", "status", "reviewer_id"], "name": "review_queue_idx"},
+
+        ],
+    }
+
+    campaign_id = ObjectIdField(db_field="campaignId", required=True)
+    pair_key = StringField(db_field="pairKey", required=True, max_length=200)
+    case_id = StringField(db_field="caseId", required=True, max_length=80)
+    submission_a_id = ObjectIdField(db_field="submissionAId", required=True)
+    submission_b_id = ObjectIdField(db_field="submissionBId", required=True)
+    slot = IntField(default=0, min_value=0, max_value=1)
+    reviewer_id = ObjectIdField(db_field="reviewerId", null=True)
+    status = StringField(default="available", choices=("available", "claimed", "completed"))
+    winner_id = ObjectIdField(db_field="winnerId", null=True)
+    notes = StringField(default="", max_length=1200)
+    rubric_version = IntField(db_field="rubricVersion", default=1, min_value=1)
+    claimed_at = DateTimeField(db_field="claimedAt", null=True)
+    completed_at = DateTimeField(db_field="completedAt", null=True)
+
+
+class Adjudication(TimestampedDocument):
+    meta = {
+        "collection": "adjudications",
+        "indexes": [{"fields": ["campaign_id", "pair_key"], "unique": True, "name": "adjudication_pair_unique_idx"}],
+    }
+
+    campaign_id = ObjectIdField(db_field="campaignId", required=True)
+    pair_key = StringField(db_field="pairKey", required=True, max_length=200)
+    case_id = StringField(db_field="caseId", required=True, max_length=80)
+    submission_a_id = ObjectIdField(db_field="submissionAId", required=True)
+    submission_b_id = ObjectIdField(db_field="submissionBId", required=True)
+    status = StringField(default="open", choices=("open", "resolved"))
+    decision_id = ObjectIdField(db_field="decisionId", null=True)
+    rationale = StringField(default="", max_length=1200)
+    adjudicator_id = ObjectIdField(db_field="adjudicatorId", null=True)
+    resolved_at = DateTimeField(db_field="resolvedAt", null=True)
+
+
+class AuditEvent(TimestampedDocument):
+    meta = {
+        "collection": "auditevents",
+        "indexes": [{"fields": ["created_at"], "name": "audit_created_idx"}],
+    }
+
+    actor_id = ObjectIdField(db_field="actorId", required=True)
+    actor_name = StringField(db_field="actorName", required=True, max_length=120)
+    action = StringField(required=True, max_length=100)
+    entity_type = StringField(db_field="entityType", required=True, max_length=80)
+    entity_id = StringField(db_field="entityId", required=True, max_length=80)
+    details = DictField(default=dict)

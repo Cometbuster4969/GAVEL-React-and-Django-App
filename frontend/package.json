@@ -1,0 +1,21 @@
+{
+	"name": "gavel-frontend",
+	"version": "1.0.0",
+	"private": true,
+	"type": "module",
+	"description": "AI evaluation operations platform \u2014 React and Django",
+	"scripts": {
+		"dev": "vite",
+		"build": "vite build",
+		"preview": "vite preview"
+	},
+	"dependencies": {
+		"@fontsource/roboto": "5.3.0",
+		"react": "19.2.4",
+		"react-dom": "19.2.4"
+	},
+	"devDependencies": {
+		"@vitejs/plugin-react": "6.1.1",
+		"vite": "8.2.2"
+	}
+}
