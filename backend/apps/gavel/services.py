@@ -1,4 +1,5 @@
 import hashlib
+import time
 from collections import defaultdict
 from datetime import datetime, timezone
 
@@ -14,6 +15,20 @@ from .models import Adjudication, AuditEvent, Campaign, CampaignRevision, Proces
 
 OWNER_ROLES = ("administrator", "owner")
 REVIEW_ROLES = ("administrator", "reviewer")
+
+# Scoped analytics cache with 5s TTL and explicit invalidation after mutations
+_analytics_cache = {}
+_analytics_cache_exp = {}
+_ANALYTICS_TTL = 5
+
+
+def _analytics_cache_key(user, campaign_id):
+    return f"{user.id}:{campaign_id}:{user.role}"
+
+
+def _invalidate_analytics_cache():
+    _analytics_cache.clear()
+    _analytics_cache_exp.clear()
 
 
 def iso(value):
@@ -157,11 +172,21 @@ def create_review_pairs(campaign):
     return created
 
 
-def list_campaigns(user):
-    rows = repository.list_campaigns()
+def list_campaigns(user, limit=None, cursor=None):
+    # Bounded pagination: default 50, max 100, cursor based on updated_at
+    try:
+        lim = min(int(limit), 100) if limit is not None else 50
+    except Exception:
+        lim = 50
+    rows = repository.list_campaigns(limit=lim, cursor=cursor)
     if user.role == "owner":
         rows = [row for row in rows if str(row.owner_id) == str(user.id)]
-    return [public_campaign(row) for row in rows]
+    items = [public_campaign(row) for row in rows]
+    # Provide cursor pagination when client requests it (limit/cursor present)
+    if limit is not None or cursor is not None:
+        next_cursor = str(rows[-1].id) if len(rows) == lim else None
+        return {"items": items, "nextCursor": next_cursor}
+    return items
 
 
 def create_campaign(user, payload):
@@ -184,6 +209,7 @@ def create_campaign(user, payload):
     ).save()
     save_revision(campaign)
     record(user, "campaign.created", "campaign", campaign.id, {"name": campaign.name, "ownerId": str(user.id)})
+    _invalidate_analytics_cache()
     return public_campaign(campaign)
 
 
@@ -217,6 +243,7 @@ def update_campaign(user, campaign_id, payload):
     campaign.reload()
     save_revision(campaign)
     record(user, "campaign.updated", "campaign", campaign.id, {"version": campaign.version})
+    _invalidate_analytics_cache()
     return public_campaign(campaign)
 
 
@@ -237,6 +264,7 @@ def create_campaign_version(user, campaign_id):
     ).save()
     revision = save_revision(campaign)
     record(user, "campaign.version_created", "campaign", campaign.id, {"sourceCampaignId": str(source.id), "sourceRevisionId": str(source_revision.id), "revisionId": str(revision.id)})
+    _invalidate_analytics_cache()
     return public_campaign(campaign)
 
 
@@ -251,6 +279,7 @@ def delete_campaign(user, campaign_id):
     if result.deleted_count != 1:
         raise AppError(409, "CAMPAIGN_CHANGED", "The draft changed while you were deleting it. Refresh and try again.")
     record(user, "campaign.deleted", "campaign", campaign.id, {"name": campaign.name, "ownerId": str(user.id)})
+    _invalidate_analytics_cache()
 
 
 def transition_campaign(user, campaign_id, target):
@@ -291,13 +320,23 @@ def transition_campaign(user, campaign_id, target):
         raise AppError(409, "CAMPAIGN_CHANGED", "The campaign changed while this transition was being applied. Refresh and try again.")
     campaign.reload()
     record(user, "campaign.status_changed", "campaign", campaign.id, {"from": before, "to": target})
+    _invalidate_analytics_cache()
     return public_campaign(campaign)
 
 
-def list_submissions(user, campaign_id):
+def list_submissions(user, campaign_id, limit=None, cursor=None):
     campaign = ensure_campaign(campaign_id)
     ensure_owner(user, campaign)
-    return [public_submission(item) for item in repository.list_submissions(campaign.id)]
+    try:
+        lim = min(int(limit), 100) if limit is not None else 50
+    except Exception:
+        lim = 50
+    rows = repository.list_submissions(campaign.id, limit=lim, cursor=cursor)
+    items = [public_submission(item) for item in rows]
+    if limit is not None or cursor is not None:
+        next_cursor = str(rows[-1].id) if len(rows) == lim else None
+        return {"items": items, "nextCursor": next_cursor}
+    return items
 
 
 def ingest_submissions(user, campaign_id, items):
@@ -365,6 +404,7 @@ def ingest_submissions(user, campaign_id, items):
         outcomes.append({"submission": public_submission(item), "duplicate": False})
     ProcessingJob(campaign_id=campaign.id, available_at=datetime.now(timezone.utc)).save()
     record(user, "submissions.queued", "campaign", campaign.id, {"count": sum(not row["duplicate"] for row in outcomes)})
+    _invalidate_analytics_cache()
     return outcomes
 
 
@@ -405,6 +445,7 @@ def process_submissions(user, campaign_id, limit=25):
     if created_reviews and mark_reviewing(campaign):
         record(user, "reviews.generated", "campaign", campaign.id, {"assignments": created_reviews})
     record(user, "submissions.processed", "campaign", campaign.id, {"processed": processed, "reviewAssignments": created_reviews})
+    _invalidate_analytics_cache()
     return {
         "processed": processed,
         "ready": ready_count,
@@ -430,6 +471,7 @@ def retry_submission(user, campaign_id, submission_id):
     submission.failure_reason = ""
     submission.save()
     record(user, "submission.retry_queued", "submission", submission.id, {"attempt": submission.attempt + 1})
+    _invalidate_analytics_cache()
     return public_submission(submission)
 
 
@@ -472,19 +514,26 @@ def public_review(review, user):
     return result
 
 
-def list_reviews(user, campaign_id=None, status=None):
+def list_reviews(user, campaign_id=None, status=None, limit=None, cursor=None):
     if user.role not in REVIEW_ROLES:
         raise AppError(403, "ROLE_FORBIDDEN", "Only reviewers and administrators can access the review queue.")
     if campaign_id:
         ensure_campaign(campaign_id)
     if status and status not in ("available", "claimed", "completed"):
         raise AppError(400, "INVALID_REVIEW_STATUS", "Select a valid review status.")
-    rows = repository.list_reviews(campaign_id)
+    try:
+        lim = min(int(limit), 100) if limit is not None else 50
+    except Exception:
+        lim = 50
+    rows = repository.list_reviews(campaign_id, limit=lim, cursor=cursor, status=status)
+    # Post-filter for reviewer visibility (owner sees only own claims)
     if user.role == "reviewer":
         rows = [row for row in rows if row.status == "available" or str(row.reviewer_id) == str(user.id)]
-    if status:
-        rows = [row for row in rows if row.status == status]
-    return [public_review(row, user) for row in rows]
+    items = [public_review(row, user) for row in rows]
+    if limit is not None or cursor is not None:
+        next_cursor = str(rows[-1].id) if len(rows) == lim else None
+        return {"items": items, "nextCursor": next_cursor}
+    return items
 
 
 def claim_review(user, review_id):
@@ -512,6 +561,7 @@ def claim_review(user, review_id):
         raise AppError(409, "REVIEW_ALREADY_CLAIMED", "Another reviewer has already claimed this comparison.")
     review.reload()
     record(user, "review.claimed", "review", review.id, {"campaignId": str(review.campaign_id)})
+    _invalidate_analytics_cache()
     return public_review(review, user)
 
 
@@ -531,6 +581,7 @@ def release_review(user, review_id):
         raise AppError(409, "REVIEW_ALREADY_SUBMITTED", "This assignment has already been submitted or released.")
     review.reload()
     record(user, "review.released", "review", review.id, {"campaignId": str(review.campaign_id)})
+    _invalidate_analytics_cache()
     return public_review(review, user)
 
 
@@ -581,6 +632,7 @@ def submit_review(user, review_id, payload):
     campaign = ensure_campaign(str(review.campaign_id))
     mark_reviewing(campaign)
     record(user, "review.completed", "review", review.id, {"caseId": review.case_id, "disagreementDetected": bool(adjudication), "campaignId": str(review.campaign_id)})
+    _invalidate_analytics_cache()
     return {"review": public_review(review, user), "disagreementDetected": bool(adjudication)}
 
 
@@ -610,17 +662,25 @@ def detect_disagreement(review):
     return adjudication
 
 
-def list_adjudications(user, campaign_id=None):
+def list_adjudications(user, campaign_id=None, limit=None, cursor=None):
     if user.role not in ("administrator", "adjudicator", "owner"):
         raise AppError(403, "ROLE_FORBIDDEN", "Your role cannot view adjudication cases.")
     if campaign_id:
         campaign = ensure_campaign(campaign_id)
         if user.role == "owner":
             ensure_owner(user, campaign)
-    rows = repository.list_adjudications(campaign_id)
+    try:
+        lim = min(int(limit), 100) if limit is not None else 50
+    except Exception:
+        lim = 50
+    rows = repository.list_adjudications(campaign_id, limit=lim, cursor=cursor)
     if user.role == "owner":
         rows = [row for row in rows if (campaign := repository.find_campaign(str(row.campaign_id))) and str(campaign.owner_id) == str(user.id)]
-    return [public_adjudication(row) for row in rows]
+    items = [public_adjudication(row) for row in rows]
+    if limit is not None or cursor is not None:
+        next_cursor = str(rows[-1].id) if len(rows) == lim else None
+        return {"items": items, "nextCursor": next_cursor}
+    return items
 
 
 def public_adjudication(item):
@@ -669,6 +729,7 @@ def resolve_adjudication(user, adjudication_id, payload):
         raise AppError(409, "ADJUDICATION_RESOLVED", "Another adjudicator has already recorded a decision.")
     item.reload()
     record(user, "adjudication.resolved", "adjudication", item.id, {"caseId": item.case_id, "decision": choice, "rationale": item.rationale, "campaignId": str(item.campaign_id)})
+    _invalidate_analytics_cache()
     return public_adjudication(item)
 
 
@@ -677,6 +738,11 @@ def deterministic_side_for_adjudication(item):
 
 
 def analytics(user, campaign_id=None):
+    # Scoped cache check (per-user, per-campaign, 5s TTL, invalidated on mutations)
+    _key = _analytics_cache_key(user, campaign_id)
+    _now = time.time()
+    if _key in _analytics_cache and _now - _analytics_cache_exp.get(_key, 0) < _ANALYTICS_TTL:
+        return _analytics_cache[_key]
     campaigns = repository.list_campaigns()
     if campaign_id:
         selected = ensure_campaign(campaign_id)
@@ -730,7 +796,7 @@ def analytics(user, campaign_id=None):
         campaign_row["agreementRate"] = round((campaign_agreement / len(complete_campaign_pairs)) * 100) if complete_campaign_pairs else 0
         campaign_row["reviewCount"] = len(campaign_reviews)
         campaign_breakdown.append(campaign_row)
-    return {
+    result = {
         "campaigns": len(campaigns),
         "submissions": len(submissions),
         "processed": sum(1 for row in submissions if row.status == "ready"),
@@ -744,6 +810,10 @@ def analytics(user, campaign_id=None):
         "modelWins": [{"model": name, "wins": wins} for name, wins in sorted(model_wins.items(), key=lambda row: (-row[1], row[0]))],
         "campaignBreakdown": campaign_breakdown,
     }
+    # Store in scoped cache with TTL; invalidated on mutations
+    _analytics_cache[_key] = result
+    _analytics_cache_exp[_key] = _now
+    return result
 
 
 def publish_results(user, campaign_id):
@@ -763,6 +833,7 @@ def publish_results(user, campaign_id):
         published_at=datetime.now(timezone.utc),
     ).save()
     record(user, "results.published", "publication", publication.id, {"campaignId": str(campaign.id), "version": version, "revisionId": str(revision.id)})
+    _invalidate_analytics_cache()
     return public_publication(publication)
 
 
@@ -790,10 +861,14 @@ def get_published_results(user, campaign_id):
     return public_publication(publication)
 
 
-def audit_log(user, cursor=None):
+def audit_log(user, cursor=None, limit=60):
     if user.role not in ("administrator", "owner", "adjudicator"):
         raise AppError(403, "ROLE_FORBIDDEN", "Your role cannot access the audit history.")
-    rows = repository.list_audit(cursor=cursor)
+    try:
+        lim = min(int(limit), 100) if limit is not None else 60
+    except Exception:
+        lim = 60
+    rows = repository.list_audit(limit=lim, cursor=cursor)
     if user.role == "owner":
         owned_ids = {str(row.id) for row in Campaign.objects(owner_id=user.id)}
         rows = [
@@ -805,18 +880,18 @@ def audit_log(user, cursor=None):
         ]
     return {
         "items": [
-        {
-            "id": str(row.id),
-            "actor": row.actor_name,
-            "action": row.action,
-            "entityType": row.entity_type,
-            "entityId": row.entity_id,
-            "details": row.details,
-            "createdAt": iso(row.created_at),
-        }
-        for row in rows
+            {
+                "id": str(row.id),
+                "actor": row.actor_name,
+                "action": row.action,
+                "entityType": row.entity_type,
+                "entityId": row.entity_id,
+                "details": row.details,
+                "createdAt": iso(row.created_at),
+            }
+            for row in rows
         ],
-        "nextCursor": str(rows[-1].id) if len(rows) == 60 else None,
+        "nextCursor": str(rows[-1].id) if len(rows) == lim else None,
     }
 
 

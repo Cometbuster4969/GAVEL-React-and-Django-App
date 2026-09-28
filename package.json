@@ -10,8 +10,8 @@
 		"prestart": "bash setup.sh --start",
 		"start": "concurrently \"bun run dev:backend\" \"bun run dev:frontend\"",
 		"dev:frontend": "cd frontend && bun run dev",
-		"dev:backend": "cd backend && ../.venv/Scripts/python.exe manage.py runserver 0.0.0.0:8000",
-		"seed": "cd backend && ../.venv/Scripts/python.exe scripts/seed.py"
+		"dev:backend": "cd backend && (../.venv/bin/python manage.py runserver 0.0.0.0:8000 || ../.venv/Scripts/python.exe manage.py runserver 0.0.0.0:8000)",
+		"seed": "cd backend && (../.venv/bin/python scripts/seed.py || ../.venv/Scripts/python.exe scripts/seed.py)"
 	},
 	"devDependencies": {
 		"concurrently": "9.2.1"
