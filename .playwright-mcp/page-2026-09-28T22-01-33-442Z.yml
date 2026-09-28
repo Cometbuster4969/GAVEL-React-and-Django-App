@@ -1,0 +1,186 @@
+- generic [ref=e60]:
+  - complementary [ref=e61]:
+    - generic [ref=e62]:
+      - generic [ref=e67]: gavel.
+      - generic [ref=e68]: OPS
+    - generic "Current workspace" [ref=e69]:
+      - generic [ref=e70]: "N"
+      - generic [ref=e71]:
+        - strong [ref=e72]: Northstar AI
+        - generic [ref=e73]: Evaluation workspace
+    - navigation "Main navigation" [ref=e76]:
+      - generic [ref=e77]:
+        - paragraph [ref=e78]: WORKSPACE
+        - button "Overview" [ref=e79] [cursor=pointer]
+      - button "Campaigns" [ref=e87] [cursor=pointer]
+      - generic [ref=e92]:
+        - paragraph [ref=e93]: QUALITY
+        - button "Adjudication" [ref=e94] [cursor=pointer]
+      - generic [ref=e99]:
+        - paragraph [ref=e100]: INSIGHTS
+        - button "Results" [ref=e101] [cursor=pointer]
+      - button "Audit history" [ref=e108] [cursor=pointer]
+    - generic [ref=e113]:
+      - generic [ref=e114]:
+        - generic [ref=e115]:
+          - text: LIVE CAMPAIGN
+          - button "Open campaigns" [ref=e117] [cursor=pointer]
+        - strong [ref=e120]: Support response quality
+        - generic [ref=e123]: Evaluation in progress
+      - button "? Need a hand? View workspace activity" [ref=e124] [cursor=pointer]:
+        - generic [ref=e125]: "?"
+        - generic [ref=e126]:
+          - strong [ref=e127]: Need a hand?
+          - generic [ref=e128]: View workspace activity
+    - generic [ref=e131]:
+      - generic [aria-hidden] [ref=e132]: MC
+      - generic [ref=e133]:
+        - strong [ref=e134]: Maya Chen
+        - generic [ref=e135]: Campaign owner
+      - button "Open user menu" [ref=e137] [cursor=pointer]
+  - main [ref=e140]:
+    - generic [ref=e141]:
+      - generic [ref=e142]:
+        - generic [ref=e143]: Gavel
+        - strong [ref=e146]: Overview
+      - generic [ref=e147]:
+        - generic [ref=e148]:
+          - textbox "Search campaigns" [ref=e152]
+          - generic [ref=e153]: ⌘ K
+        - button "View activity" [ref=e154] [cursor=pointer]
+        - button "Open user menu" [ref=e159] [cursor=pointer]:
+          - generic [aria-hidden] [ref=e160]: MC
+        - button "New evaluation" [ref=e161] [cursor=pointer]
+    - generic [ref=e165]:
+      - generic [ref=e166]:
+        - generic [ref=e167]:
+          - generic [ref=e168]: TUESDAY, SEPTEMBER 29
+          - heading "Good morning, Maya" [level=1] [ref=e169]
+          - paragraph [ref=e170]: Here's the latest from your evaluation workspace.
+        - button "Create evaluation" [ref=e171] [cursor=pointer]
+      - generic [ref=e174]:
+        - generic [aria-hidden] [ref=e175]:
+          - generic [ref=e183]: ✦
+          - generic [ref=e184]: ✧
+        - generic [ref=e185]:
+          - generic [ref=e186]: CAMPAIGN IN PROGRESS
+          - heading "Support response quality" [level=2] [ref=e188]
+          - paragraph [ref=e189]: Compare two model releases on high-stakes customer support conversations.
+          - button "View campaign" [ref=e190] [cursor=pointer]
+        - generic [ref=e193]:
+          - generic [ref=e194]: RUBRIC VERSION
+          - strong [ref=e195]: v3.0
+          - generic [ref=e196]: Frozen for blind review
+      - generic [ref=e197]:
+        - article [ref=e198]:
+          - generic [ref=e199]: Evaluations
+          - generic [ref=e205]: "3"
+          - generic [ref=e206]: Across your workspace
+        - article [ref=e208]:
+          - generic [ref=e209]: Responses processed
+          - generic [ref=e214]: "7"
+          - generic [ref=e215]: 0 waiting in queue
+        - article [ref=e217]:
+          - generic [ref=e218]: Reviewer agreement
+          - generic [ref=e225]: 50%
+          - generic [ref=e226]: Across completed comparisons
+        - article [ref=e228]:
+          - generic [ref=e229]: Needs adjudication
+          - generic [ref=e234]: "1"
+          - generic [ref=e235]: Disagreements awaiting a decision
+      - generic [ref=e237]:
+        - generic [ref=e238]:
+          - generic [ref=e239]:
+            - generic [ref=e240]:
+              - generic [ref=e241]: WORKSPACE
+              - heading "Evaluation campaigns" [level=2] [ref=e242]
+            - button "View all" [ref=e243] [cursor=pointer]
+          - table [ref=e247]:
+            - rowgroup [ref=e248]:
+              - row [ref=e249]:
+                - columnheader "CAMPAIGN" [ref=e250]
+                - columnheader "STATUS" [ref=e251]
+                - columnheader "RESPONSES" [ref=e252]
+                - columnheader "REVIEW PROGRESS" [ref=e253]
+                - columnheader [ref=e254]
+            - rowgroup [ref=e255]:
+              - row [ref=e256] [cursor=pointer]:
+                - cell "Support response quality 3 test cases · v2 suite" [ref=e257]:
+                  - generic [ref=e259]:
+                    - strong [ref=e260]: Support response quality
+                    - generic [ref=e261]: 3 test cases · v2 suite
+                - cell "In review" [ref=e262]
+                - cell "6 responses" [ref=e264]:
+                  - strong [ref=e265]: "6"
+                  - generic [ref=e266]: responses
+                - cell "5 reviews" [ref=e267]
+                - cell [ref=e271]:
+                  - button "Open Support response quality" [ref=e272]
+              - row [ref=e275] [cursor=pointer]:
+                - cell "Onboarding assistant robustness 2 test cases · v1 suite" [ref=e276]:
+                  - generic [ref=e278]:
+                    - strong [ref=e279]: Onboarding assistant robustness
+                    - generic [ref=e280]: 2 test cases · v1 suite
+                - cell "Running" [ref=e281]
+                - cell "2 responses" [ref=e283]:
+                  - strong [ref=e284]: "2"
+                  - generic [ref=e285]: responses
+                - cell "0 reviews" [ref=e286]
+                - cell [ref=e289]:
+                  - button "Open Onboarding assistant robustness" [ref=e290]
+              - row [ref=e293] [cursor=pointer]:
+                - cell "Policy answer consistency 1 test cases · v1 suite" [ref=e294]:
+                  - generic [ref=e296]:
+                    - strong [ref=e297]: Policy answer consistency
+                    - generic [ref=e298]: 1 test cases · v1 suite
+                - cell "Draft" [ref=e299]
+                - cell "0 responses" [ref=e301]:
+                  - strong [ref=e302]: "0"
+                  - generic [ref=e303]: responses
+                - cell "0 reviews" [ref=e304]
+                - cell [ref=e307]:
+                  - button "Open Policy answer consistency" [ref=e308]
+        - generic [ref=e311]:
+          - generic [ref=e312]:
+            - generic [ref=e313]:
+              - generic [ref=e314]: NEXT UP
+              - heading "Needs your attention" [level=2] [ref=e315]
+            - generic [ref=e316]: "1"
+          - generic [ref=e317]:
+            - generic [ref=e321]:
+              - strong [ref=e322]: 1 disagreement to resolve
+              - generic [ref=e323]: Two reviewers chose different responses.
+            - button "Open adjudication" [ref=e324] [cursor=pointer]
+          - generic [ref=e328]:
+            - generic [ref=e329]:
+              - generic [ref=e330]: MC
+              - generic [ref=e331]: JL
+              - generic [ref=e332]: PS
+            - generic [ref=e333]: Team activity
+            - button "View log" [ref=e334] [cursor=pointer]
+      - generic [ref=e337]:
+        - generic [ref=e338]:
+          - generic [ref=e339]:
+            - generic [ref=e340]: HOW IT WORKS
+            - heading "From prompt to confident decision" [level=2] [ref=e341]
+          - generic [ref=e342]: A connected quality loop
+        - generic [ref=e343]:
+          - generic [ref=e349]:
+            - generic [ref=e350]: "01"
+            - strong [ref=e351]: Build a campaign
+            - generic [ref=e352]: Versioned test cases & rubric
+          - generic [ref=e359]:
+            - generic [ref=e360]: "02"
+            - strong [ref=e361]: Run responses
+            - generic [ref=e362]: Queue, validate & process
+          - generic [ref=e370]:
+            - generic [ref=e371]: "03"
+            - strong [ref=e372]: Review blind
+            - generic [ref=e373]: Pairwise, identity hidden
+          - generic [ref=e381]:
+            - generic [ref=e382]: "04"
+            - strong [ref=e383]: Decide & learn
+            - generic [ref=e384]: Resolve, measure, repeat
+      - generic [ref=e385]:
+        - generic [ref=e386]: Gavel Evaluation Operations
+        - generic [ref=e387]: System status All services operational
