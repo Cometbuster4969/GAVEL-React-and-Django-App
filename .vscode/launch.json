@@ -7,7 +7,7 @@
 			"request": "launch",
 			"program": "${workspaceFolder}/backend/manage.py",
 			"args": ["runserver", "0.0.0.0:8000", "--noreload"],
-			"python": "${workspaceFolder}/.venv/bin/python",
+						"python": "${workspaceFolder}/.venv/Scripts/python.exe",
 			"cwd": "${workspaceFolder}/backend",
 			"console": "integratedTerminal",
 			"justMyCode": true

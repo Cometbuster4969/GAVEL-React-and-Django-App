@@ -139,3 +139,78 @@ The following were not confirmed as complete locally:
 11. Add CSV/file upload validation for larger response batches.
 12. Add richer published-result exports with campaign metadata, rubric scores, disagreements, and provenance.
 13. Add reviewer workload balancing and an administrator conflict-management screen.
+
+## `test.md` Execution Log
+
+Run date: 2026-09-29
+
+### Prerequisites and install
+
+- `Bun 1.4.2`: PASS.
+- `Python 3.14.7`: MANUAL/environment deviation. The checklist documents Python 3.12 or 3.11; the installed interpreter is newer, but all local checks passed.
+- `uv 0.12.6`: PASS.
+- MongoDB on `127.0.0.1:27017`: PASS. The setup script reported MongoDB reachable.
+- Ports 3000 and 8000 before startup: PASS, no listeners found.
+- Current branch: FAIL for the checklist target. It is `main`, not `arena/01a0ea33-gavel-react-and-django-app`.
+- `bun install`: PASS, no package changes.
+- `bash setup.sh --seed`: PASS through the installed Git Bash executable. Direct PowerShell `bash` was unavailable, but the equivalent Git Bash execution completed successfully.
+- Seed baseline: PASS. Seed output reported 5 users, 3 campaigns, 8 submissions, and 6 review assignments.
+- No manual environment edits were required.
+
+### Static checks
+
+- `S01` repo name: MANUAL and accepted. `GAVEL-React-and-Django-App` is Arena-assigned and does not match the cosmetic `coderepo-*` naming convention.
+- `S02` repository shape: PASS.
+- `S03` README coverage: PASS by heading and source review.
+- `S04-S06` Bun workspace, lockfile, and dependency hygiene: PASS. No added runtime dependency was found.
+- `S07` route to view to service to repository/model architecture: PASS.
+- `S08` MongoEngine/pymongo persistence with no SQL ORM: PASS.
+- `S09` deterministic seed cleanup and ObjectIds: PASS.
+- `S10` environment examples and ignored real env files: PASS.
+- `S11` HackerRank configuration: PASS after adding top-level `install` and `run` commands.
+- `S12` Vite/Django ports, proxy, host, and API path: PASS.
+- `S14-S15` UI/API/backend feature traces: PASS.
+- `S16` Prettier and Python compilation: PASS. Prettier reported all matched files clean.
+- `S18` committed archive: PASS. Archive size was 430,080 bytes, below 5 MB, and included `README.md` while excluding `GUIDELINES.md` and `skills/` through export rules.
+- `S19` debugger configuration: PASS after changing the Windows interpreter to `.venv/Scripts/python.exe`.
+- Conflict marker scan: PASS. No `<<<<<<<`, `=======`, or `>>>>>>>` markers remain.
+
+### Build and runtime
+
+- `R01` install and seed: PASS through Git Bash compatibility execution.
+- `R02` frontend build: PASS. Vite completed successfully.
+- `R03` Django check: PASS with no issues.
+- Backend Python compilation: PASS.
+- Backend tests: PASS. `Ran 6 tests ... OK`.
+- `R04` exact `bun start`: PASS after adding cross-platform wrappers in `scripts/run-setup.mjs`, `scripts/run-backend.mjs`, and `scripts/run-seed.mjs`.
+- `R05` health and frontend: PASS. Backend returned `status=ok`, `database=connected`; frontend returned HTTP 200 on port 3000.
+
+### API and workflow checks
+
+- `R06` seeded baseline: PASS. Three campaigns and the expected seeded records were restored after each reset.
+- `R07` authentication: PASS. All five seeded accounts logged in with the expected roles; `/auth/me` returned the owner role; unauthenticated access returned 401.
+- `R08` feature APIs: PASS. Campaign, submission, review, adjudication, analytics, audit, published-results, JSON export, and CSV export reads returned live data or valid seeded empty/resolved collections. Pagination returned bounded `items` and `nextCursor` where requested. CSV returned HTTP 200 with `text/csv`.
+- `R09` persistence: PASS. Campaign create, read, draft update, follow-up read, delete, and post-delete 404 all succeeded with no residue.
+- `R09` committed E2E: PASS. `node e2e/gavel.spec.js` returned `API E2E passed ...` and `E2E success`.
+- `R10` validation and authorization: PASS. Observed 401 unauthenticated, 400 invalid input, 403 reviewer ownership violation, and 404 invalid/deleted campaign responses without stack traces.
+- `R11` restart reset: PASS. A temporary campaign returned 404 after exact `bun start`, and the seeded campaign count returned to 3.
+- `R12` cleanup: PARTIAL. Ports 3000 and 8000 were released and no unmerged paths remain, but the worktree is intentionally not clean because the configuration and wrapper fixes are uncommitted.
+
+### Allowed manual items
+
+The following are intentionally `MANUAL` and accepted per the checklist:
+
+- `S01`: cosmetic Arena repository name mismatch.
+- MongoDB transaction/outbox evidence: the implementation uses atomic compare-and-set operations and best-effort audit recording; formal transaction/outbox verification is operational evidence.
+- Formal accessibility audit: the UI contains `aria-*` attributes and dialog roles, but keyboard, focus, screen-reader, and contrast evidence is manual.
+- Production hardening: CORS, JWT lifetime, rate limits, HTTPS, secret rotation, and deployment network controls require production configuration evidence.
+
+### Final verdict
+
+Functional verification is PASS, but the repository is **not yet submission-ready** under the exact final checklist because:
+
+1. The current branch is `main`, not the required Arena branch.
+2. `git status --porcelain` is not clean because the verified fixes are uncommitted.
+3. The external submission actions remain outstanding: private-repository confirmation, PR #1 targeting `main`, collaborator invitation, transcript export to `transcripts/`, and Discord notification.
+
+No functional `FAIL` remains after the configuration fixes were rerun from the install step.

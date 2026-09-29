@@ -1,4 +1,6 @@
 version: 1.0
+install: bun install && bash setup.sh --seed
+run: bun start
 configuration:
   has_webserver: true
   readonly_paths:
