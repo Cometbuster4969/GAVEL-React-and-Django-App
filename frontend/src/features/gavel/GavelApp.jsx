@@ -229,7 +229,7 @@ function LoginScreen({ onLogin }) {
 						is waiting.
 					</h2>
 					<p className="login-helper">Choose a demo role or enter your workspace credentials.</p>
-					<div className="demo-users" aria-label="Demo profiles">
+					<div className="demo-users" role="group" aria-label="Demo profiles">
 						{DEMO_ACCOUNTS.map((person) => (
 							<button
 								type="button"
@@ -315,7 +315,7 @@ function AppShell({ user, onLogout, children, activeTab, setActiveTab, campaigns
 		.filter((item) => item.id !== "analytics" || user.role !== "reviewer");
 	return (
 		<div className="app-shell">
-			<aside className="sidebar">
+			<aside className="sidebar" aria-label="Workspace navigation">
 				<div className="sidebar-brand">
 					<GavelMark />
 					<span>
@@ -323,7 +323,7 @@ function AppShell({ user, onLogout, children, activeTab, setActiveTab, campaigns
 					</span>
 					<span className="workspace-tag">OPS</span>
 				</div>
-				<div className="workspace-switcher" aria-label="Current workspace">
+				<div className="workspace-switcher" role="group" aria-label="Current workspace">
 					<span className="workspace-monogram">N</span>
 					<span className="workspace-copy">
 						<strong>Northstar AI</strong>
@@ -728,7 +728,9 @@ function CampaignTable({ campaigns, onSelect }) {
 						<th>STATUS</th>
 						<th>RESPONSES</th>
 						<th>REVIEW PROGRESS</th>
-						<th />
+						<th>
+							<span className="visually-hidden">Actions</span>
+						</th>
 					</tr>
 				</thead>
 				<tbody>
@@ -1056,7 +1058,9 @@ function CampaignDetail({
 									<th>TEST CASE</th>
 									<th>STATE</th>
 									<th>ATTEMPTS</th>
-									<th />
+									<th>
+										<span className="visually-hidden">Actions</span>
+									</th>
 								</tr>
 							</thead>
 							<tbody>
@@ -1124,7 +1128,7 @@ function ReviewPage({ reviews, loading, activeReviewId, onSelect, onClaim, onRel
 				description="Compare model responses without seeing which system produced them."
 			/>
 			<div className="review-layout">
-				<aside className="review-queue panel">
+				<aside className="review-queue panel" aria-label="Blind review queue">
 					<div className="review-queue-head">
 						<div>
 							<span className="eyebrow">YOUR QUEUE</span>
@@ -1406,7 +1410,7 @@ function AdjudicationPage({ items, loading, onResolve, busy, canResolve }) {
 				</div>
 			) : (
 				<div className="adjudication-layout">
-					<aside className="panel adjudication-list">
+					<aside className="panel adjudication-list" aria-label="Adjudication queue">
 						<div className="panel-heading">
 							<div>
 								<span className="eyebrow">REQUIRES DECISION</span>
@@ -1605,7 +1609,7 @@ function AnalyticsPage({ analytics, campaigns, loading }) {
 								<span>Average across completed paired reviews</span>
 							</div>
 							{campaignStats.length ? (
-								<div className="bar-chart" aria-label="Reviewer agreement rate by campaign">
+								<div className="bar-chart" role="group" aria-label="Reviewer agreement rate by campaign">
 									{campaignStats.slice(0, 10).map((row, index) => (
 										<div className="bar-col" key={row.id}>
 											<span

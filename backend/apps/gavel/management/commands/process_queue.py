@@ -1,11 +1,6 @@
-from datetime import datetime, timezone
-
 from django.core.management.base import BaseCommand
-from mongoengine import Q
-from pymongo import ReturnDocument
 
-from apps.gavel.models import ProcessingJob
-from apps.gavel.services import process_submissions
+from apps.gavel.jobs import process_next_job
 
 
 class Command(BaseCommand):
@@ -28,25 +23,4 @@ class Command(BaseCommand):
                 time.sleep(max(options["sleep"], 0.1))
 
     def process_available(self, limit):
-        processed = 0
-        now = datetime.now(timezone.utc)
-        job = ProcessingJob._get_collection().find_one_and_update(
-            {"status": "queued", "availableAt": {"$lte": now}},
-            {"$set": {"status": "running", "lockedAt": now}, "$inc": {"attempts": 1}},
-            sort=[("availableAt", 1), ("_id", 1)],
-            return_document=ReturnDocument.AFTER,
-        )
-        if job is None:
-            return 0
-        try:
-            process_submissions(None, str(job["campaignId"]), limit)
-            ProcessingJob._get_collection().update_one(
-                {"_id": job["_id"], "status": "running"},
-                {"$set": {"status": "completed", "updatedAt": datetime.now(timezone.utc)}},
-            )
-        except Exception as error:
-            ProcessingJob._get_collection().update_one(
-                {"_id": job["_id"], "status": "running"},
-                {"$set": {"status": "failed", "error": str(error)[:500], "updatedAt": datetime.now(timezone.utc)}},
-            )
-        return 1
+        return process_next_job(limit)

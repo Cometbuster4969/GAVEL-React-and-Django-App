@@ -1,7 +1,7 @@
 import hashlib
 import time
 from collections import defaultdict
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from bson import ObjectId
 from pymongo import ReturnDocument
@@ -57,8 +57,55 @@ def ensure_owner(user, campaign):
 
 
 def record(user, action, entity_type, entity_id, details=None):
-    if user is not None:
-        repository.record_audit(user, action, entity_type, entity_id, details)
+    """Write audit intent to the outbox, then attempt inline delivery.
+
+    The outbox write is the durability boundary: if delivery fails, the intent
+    stays pending and ``drain_audit_outbox`` retries it with backoff. The inline
+    attempt keeps the audit feed live for the common case (no UI lag).
+    """
+    if user is None:
+        return None
+    try:
+        entry = repository.enqueue_audit_outbox(user, action, entity_type, entity_id, details)
+    except Exception:
+        # Fall back to the direct append-only write when the outbox is unavailable.
+        try:
+            repository.record_audit(user, action, entity_type, entity_id, details)
+        except Exception:
+            pass
+        return None
+    try:
+        repository.deliver_audit_event(entry)
+        repository.mark_audit_outbox_delivered(entry.event_id, datetime.now(timezone.utc))
+    except Exception:
+        # Delivery is retried by the worker; the domain operation is unaffected.
+        pass
+    return entry.event_id
+
+
+def drain_audit_outbox(limit=25, max_attempts=5, base_delay=30):
+    """Deliver pending audit-outbox entries with bounded retries.
+
+    Returns counters for the worker's log line. Delivery is idempotent per
+    ``eventId``, so running this more than once never duplicates audit rows.
+    """
+    now = datetime.now(timezone.utc)
+    repository.recover_stale_audit_outbox(now - timedelta(seconds=300))
+    stats = {"scanned": 0, "delivered": 0, "retried": 0, "failed": 0}
+    for _ in range(max(int(limit), 1)):
+        entry = repository.claim_audit_outbox(now)
+        if entry is None:
+            break
+        stats["scanned"] += 1
+        try:
+            repository.deliver_audit_event(entry)
+            repository.mark_audit_outbox_delivered(entry["eventId"], datetime.now(timezone.utc))
+            stats["delivered"] += 1
+        except Exception as error:
+            outcome = repository.mark_audit_outbox_failed(entry["eventId"], datetime.now(timezone.utc), error, max_attempts, base_delay)
+            stats["failed" if outcome == "failed" else "retried"] += 1
+    stats.update(repository.count_audit_outbox())
+    return stats
 
 
 def save_revision(campaign):

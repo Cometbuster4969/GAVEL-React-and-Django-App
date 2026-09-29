@@ -153,7 +153,10 @@ class ResultPublication(TimestampedDocument):
 class AuditEvent(TimestampedDocument):
     meta = {
         "collection": "auditevents",
-        "indexes": [{"fields": ["created_at"], "name": "audit_created_idx"}],
+        "indexes": [
+            {"fields": ["created_at"], "name": "audit_created_idx"},
+            {"fields": ["event_id"], "name": "audit_event_event_id_idx", "sparse": True},
+        ],
     }
 
     actor_id = ObjectIdField(db_field="actorId", required=True)
@@ -162,3 +165,37 @@ class AuditEvent(TimestampedDocument):
     entity_type = StringField(db_field="entityType", required=True, max_length=80)
     entity_id = StringField(db_field="entityId", required=True, max_length=80)
     details = DictField(default=dict)
+    event_id = StringField(db_field="eventId", max_length=64, null=True)
+
+
+class AuditOutbox(TimestampedDocument):
+    """Durable audit intent, delivered into ``auditevents`` by a retrying worker.
+
+    Every domain mutation writes its audit intent here first, so the intent
+    survives a failed ``AuditEvent`` write. Delivery is attempted inline for a
+    live audit feed and retried with backoff by ``manage.py drain_audit_outbox``
+    (the worker mirrors the ``process_queue`` job pattern). ``eventId`` makes
+    delivery idempotent: re-running the worker cannot duplicate an audit event.
+    """
+
+    meta = {
+        "collection": "auditoutbox",
+        "indexes": [
+            {"fields": ["status", "available_at"], "name": "audit_outbox_status_idx"},
+            {"fields": ["event_id"], "unique": True, "name": "audit_outbox_event_unique_idx"},
+        ],
+    }
+
+    event_id = StringField(db_field="eventId", required=True, max_length=64)
+    actor_id = ObjectIdField(db_field="actorId", required=True)
+    actor_name = StringField(db_field="actorName", required=True, max_length=120)
+    action = StringField(required=True, max_length=100)
+    entity_type = StringField(db_field="entityType", required=True, max_length=80)
+    entity_id = StringField(db_field="entityId", required=True, max_length=80)
+    details = DictField(default=dict)
+    status = StringField(default="pending", choices=("pending", "running", "delivered", "failed"))
+    attempts = IntField(default=0, min_value=0)
+    available_at = DateTimeField(db_field="availableAt", required=True)
+    locked_at = DateTimeField(db_field="lockedAt", null=True)
+    delivered_at = DateTimeField(db_field="deliveredAt", null=True)
+    last_error = StringField(db_field="lastError", default="", max_length=500)

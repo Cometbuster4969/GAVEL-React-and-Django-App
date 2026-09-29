@@ -1,0 +1,54 @@
+Gavel verification log — 2026-09-29 (arena/01a0ed1b-gavel-react-and-django-app)
+===============================================================
+
+$ bun --version
+1.4.2
+
+$ bun install
+bun install v1.4.2 (744846f84)
+
+Checked 49 installs across 72 packages (no changes) [3.00ms]
+
+$ bash setup.sh --seed
+  reviewer       Jordan Lee   jordan.lee@gavel.test
+  reviewer       Sam Rivera   sam.rivera@gavel.test
+  adjudicator    Priya Shah   priya.shah@gavel.test
+Gavel database seeded successfully
+  Users: 5 | Campaigns: 3 | Submissions: 8 | Review assignments: 6
+  Demo password: gavel2026!
+  administrator  Elena Park   elena.park@gavel.test
+  owner          Maya Chen    maya.chen@gavel.test
+  reviewer       Jordan Lee   jordan.lee@gavel.test
+  reviewer       Sam Rivera   sam.rivera@gavel.test
+  adjudicator    Priya Shah   priya.shah@gavel.test
+[0;32m[INFO][0m Gavel setup complete
+
+$ cd backend && ../.venv/bin/python manage.py check
+System check identified no issues (0 silenced).
+
+$ cd backend && ../.venv/bin/python -m unittest apps.gavel.test_services apps.gavel.test_integration apps.gavel.test_outbox
+Ran 13 tests in 0.111s
+OK
+
+$ bun run worker --once
+Worker pass: processed 1 job(s); audit outbox delivered 0, retried 0, failed 0, pending 0.
+
+$ cd frontend && bun run build
+dist/assets/index-BqHy_MVH.css                       56.36 kB │ gzip: 12.77 kB
+dist/assets/index-CwRtvwLp.js                       261.33 kB │ gzip: 76.52 kB │ map: 1,024.84 kB
+
+✓ built in 369ms
+
+$ npx prettier --check frontend/src/features/gavel/GavelApp.jsx frontend/src/styles.css package.json scripts/run-worker.mjs
+Checking formatting...
+All matched files use Prettier code style!
+
+$ cd backend && ../.venv/bin/python -m py_compile apps/gavel/*.py apps/gavel/management/commands/*.py && echo PY_COMPILE_OK
+PY_COMPILE_OK
+
+$ curl -s http://127.0.0.1:8000/api/v1/health
+{"data":{"status":"ok","database":"connected"}}
+
+$ node e2e/gavel.spec.js  (live API against Django on :8000)
+API E2E passed for 6abbb0247327847311dfe22a
+E2E success

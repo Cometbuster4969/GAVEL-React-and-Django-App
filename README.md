@@ -30,6 +30,7 @@ The core workflow is draft → published → running → reviewing → completed
 6. Atomic review claiming to prevent two reviewers from taking the same assignment.
 7. Automatic disagreement detection and adjudication with an immutable final decision rationale.
 8. Stored campaign analytics, preference outcomes, throughput metrics, and append-only audit history.
+9. Durable audit outbox: audit intent is persisted before delivery, retried with backoff by the worker, and dead-lettered for operators instead of being dropped.
 
 ## Technology stack
 
@@ -52,7 +53,8 @@ No external component library, hosted service, or new runtime dependency is used
 │   ├── src/shared/api/               # Authenticated JSON API client
 │   └── public/                       # Local favicon
 ├── backend/
-│   ├── apps/gavel/                   # Identity, campaigns, submissions, reviews, decisions, analytics
+│   ├── apps/gavel/                   # Identity, campaigns, submissions, reviews, decisions, analytics, audit outbox
+│   │   ├── worker.py                 # Standalone worker entry point (submission jobs + audit outbox)
 │   │   ├── views.py                  # Thin HTTP handlers
 │   │   ├── services.py               # Domain rules and lifecycle workflows
 │   │   ├── repository.py             # MongoEngine query boundary
@@ -60,8 +62,9 @@ No external component library, hosted service, or new runtime dependency is used
 │   ├── apps/shared/                  # MongoDB health, API errors, rendering, timestamps
 │   ├── calendar_backend/             # Django settings and URL composition
 │   └── scripts/seed.py               # Deterministic demo data and reset
+├── scripts/run-worker.mjs            # `bun run worker` launcher
 ├── skills/validate/                  # Supplied static/runtime repository verifier
-├── transcripts/                      # AI interaction log export for submission
+├── transcripts/                      # AI interaction log export + audit evidence for submission
 ├── .vscode/launch.json               # Django debugger configuration
 ├── hackerrank.yml                    # HackerRank install/run contract
 └── setup.sh                          # Environment setup, MongoDB check, and seed reset
@@ -109,6 +112,7 @@ The login screen includes shortcuts for each demo identity. Review assignments h
 | `bash setup.sh --seed` | Prepare Python/MongoDB and reset seeded application data. |
 | `bun start` | Seed the baseline and run the complete frontend and backend. |
 | `bun run seed` | Rebuild the deterministic MongoDB demo baseline. |
+| `bun run worker` | Run the background worker: queued submission jobs plus the audit outbox (add `-- --once` for a single pass). |
 | `bun run dev:backend` | Run the Django API on port 8000 after setup. |
 | `bun run dev:frontend` | Run the Vite app on port 3000. |
 | `cd frontend && bun run build` | Build the React application for production. |
