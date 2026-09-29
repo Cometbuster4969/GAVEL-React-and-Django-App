@@ -20,10 +20,11 @@ def public_user(user):
 
 def issue_token(user):
     issued_at = datetime.now(timezone.utc)
+    lifetime = getattr(settings, "JWT_LIFETIME", 86400)
     payload = {
         "sub": str(user.id),
         "iat": issued_at,
-        "exp": issued_at + timedelta(seconds=86400),
+        "exp": issued_at + timedelta(seconds=lifetime),
         "aud": settings.JWT_AUDIENCE,
         "iss": settings.JWT_ISSUER,
     }

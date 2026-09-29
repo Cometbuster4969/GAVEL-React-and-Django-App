@@ -7,13 +7,28 @@ from dotenv import load_dotenv
 BASE_DIR = Path(__file__).resolve().parent.parent
 load_dotenv(BASE_DIR / ".env")
 
-SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", "gavel-django-development-key")
-DEBUG = os.getenv("NODE_ENV", "development") == "development"
-ALLOWED_HOSTS = ["*"]
+SECRET_KEY = os.getenv("DJANGO_SECRET_KEY")
+if not SECRET_KEY:
+    if os.getenv("NODE_ENV", "development") == "production":
+        raise ValueError("DJANGO_SECRET_KEY must be set in production.")
+    SECRET_KEY = "gavel-django-development-key"
 
-JWT_SECRET = os.getenv("JWT_SECRET", "gavel-local-demo-secret-change-before-deployment")
-JWT_ISSUER = "gavel-api"
-JWT_AUDIENCE = "gavel-app"
+DEBUG = os.getenv("NODE_ENV", "development") == "development"
+
+# Restrict allowed hosts in production; allow all only in development
+ALLOWED_HOSTS = ["*"] if DEBUG else ["localhost", "127.0.0.1", ".internal", ".e2b.app"]
+
+# JWT: enforce production secret; shorter expiry in production (2h default)
+JWT_SECRET = os.getenv("JWT_SECRET")
+if not JWT_SECRET:
+    if not DEBUG:
+        raise ValueError("JWT_SECRET must be set and must not be the default demo value in production.")
+    JWT_SECRET = "gavel-local-demo-secret-change-before-deployment"
+JWT_ISSUER = os.getenv("JWT_ISSUER", "gavel-api")
+JWT_AUDIENCE = os.getenv("JWT_AUDIENCE", "gavel-app")
+JWT_LIFETIME = int(os.getenv("JWT_LIFETIME_SECONDS", "7200"))  # 2h production default; 24h (86400) only for dev
+
+# MongoDB URI: never expose credentials in URI without TLS in production
 MONGODB_URI = os.getenv("MONGODB_URI", "mongodb://127.0.0.1:27017/gavel_db")
 _use_mock = os.getenv("USE_MONGOMOCK", "false").lower() == "true"
 try:
@@ -66,8 +81,20 @@ except Exception:
     pass
 
 INSTALLED_APPS = ["corsheaders", "rest_framework", "apps.gavel"]
-MIDDLEWARE = ["corsheaders.middleware.CorsMiddleware", "django.middleware.common.CommonMiddleware"]
-CORS_ALLOW_ALL_ORIGINS = True
+MIDDLEWARE = [
+    "corsheaders.middleware.CorsMiddleware",
+    "django.middleware.common.CommonMiddleware",
+    "calendar_backend.security_middleware.HTTPSRedirectMiddleware",
+    "calendar_backend.security_middleware.RateLimitMiddleware",
+    "calendar_backend.security_middleware.SecretValidationMiddleware",
+]
+# CORS: allow all only in development; restrict to known origins in production
+CORS_ALLOW_ALL_ORIGINS = DEBUG
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+] if not DEBUG else []
+CORS_ALLOW_CREDENTIALS = not DEBUG  # Only send credentials over HTTPS/restricted origins
 ROOT_URLCONF = "calendar_backend.urls"
 DATABASES = {}
 TEMPLATES = []
