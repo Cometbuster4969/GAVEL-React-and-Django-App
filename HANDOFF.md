@@ -152,4 +152,19 @@ Seeded accounts `gavel2026!`: `maya.chen@gavel.test` (owner), `jordan.lee@gavel.
 - Repository visibility: private at earlier handoff; re-verify bevor submission. No changes should be pushed to any branch other than the Arena branch.
 - Static checks now: `prettier --check` PASS, `vite build` PASS, `py_compile` PASS, `bash -n setup.sh` PASS, `git diff --check` PASS, `manage.py check` 0 issues, `unittest` 6 tests PASS, `git archive` ≈360k <5MB, `S01` naming still `GAVEL-React-and-Django-App` (Arena-assigned, not `coderepo-…`, cosmetic), `S12`/`S16` now PASS, `S06` PASS (no manifest deps added; `mongomock` installed via `setup.sh` pip not via `requirements.txt`).
 - **Full verification now evidenced (this session, live mongomock):** `bun install && bash setup.sh --seed` exit 0, `.venv` `uv` + `mongomock`, health `200 ok/connected`, seed 5/3/8/6, `6 tests OK`, `vite build`, `bun run dev:frontend` + `manage.py runserver` on 3000/8000, 12-step E2E via live API (`node e2e/gavel.spec.js` → `API E2E passed`), pagination `?limit=2` returns `items/nextCursor`, CSV export `200 text/csv`, audit pagination, cache invalidation verified via `test_integration`.
-- **Remaining to verify this session:** Formal a11y audit evidence, production hardening docs, README reconciliation, transcript export, and final `skills/validate` full run (expect `S01` cosmetic, `MANUAL` for a11y/production, else `PASS`).
+- **Remaining to verify this session:** Formal a11y audit evidence, README reconciliation, transcript export, and final `skills/validate` full run (expect `S01` cosmetic, `MANUAL` for a11y/production, else `PASS`).
+
+### Security Hardening Updates (2026-09-29)
+
+- `SECURITY.md` created: documents CORS restriction, secret enforcement, JWT hardening (2h default, production validation), HTTPS redirect middleware, rate limiting, secret validation middleware, MongoDB outbox/transaction design, accessibility audit status, and remaining external submission steps.
+- `backend/calendar_backend/security_middleware.py` created: `HTTPSRedirectMiddleware`, `RateLimitMiddleware` (100/min/IP, in-memory with `X-RateLimit-*` headers), `SecretValidationMiddleware` (503 if production JWT secret is weak/default).
+- `backend/calendar_backend/settings.py` updated: `CORS_ALLOW_ALL_ORIGINS` tied to `DEBUG`; `ALLOWED_HOSTS` restricted in production; middleware list includes all three security middlewares; `JWT_SECRET` and `DJANGO_SECRET_KEY` enforce production values; `JWT_LIFETIME` defaults to 7200s.
+- `backend/apps/gavel/auth.py` updated: uses `settings.JWT_LIFETIME` instead of hardcoded 86400s.
+- `backend/.env.example` updated: production secret requirements, JWT lifetime, MongoDB TLS note, CORS allowed origins.
+- `backend/calendar_backend/security_middleware.py` syntax verified (`python3 -m py_compile`).
+- All changes committed to `arena/01a0eae7-gavel-react-and-django-app`.
+
+### MongoDB Transaction / Outbox (Verified Design, Not Production Tested)
+- Atomic `find_one_and_update` + CAS (`version`) covers domain mutations (campaigns, reviews, adjudications, submissions).
+- Audit is best-effort append-only after domain success; no multi-doc Mongo transaction is required for correctness.
+- Production recommendation: implement outbox pattern (same-transaction outbox collection + separate worker) if audit durability must survive domain failures; or use MongoDB 4.0+ `start_transaction()` for multi-document atomic updates.
