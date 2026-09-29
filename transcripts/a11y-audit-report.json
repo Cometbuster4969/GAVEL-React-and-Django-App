@@ -1,0 +1,421 @@
+{
+  "baseUrl": "http://127.0.0.1:3000",
+  "generatedAt": "2026-09-29T12:31:44.732Z",
+  "pages": [
+    {
+      "label": "login",
+      "url": "http://127.0.0.1:3000/",
+      "violations": [],
+      "incomplete": [
+        {
+          "id": "color-contrast",
+          "impact": "serious",
+          "help": "Elements must meet minimum color contrast ratio thresholds",
+          "helpUrl": "https://dequeuniversity.com/rules/axe/4.13/color-contrast?application=axeAPI",
+          "nodeCount": 8,
+          "nodes": [
+            {
+              "target": ".login-brand > span:nth-child(2)",
+              "summary": "Fix any of the following:\n  Element's background color could not be determined due to a background gradient"
+            },
+            {
+              "target": ".eyebrow-light",
+              "summary": "Fix any of the following:\n  Element's background color could not be determined due to a background gradient"
+            },
+            {
+              "target": "h1",
+              "summary": "Fix any of the following:\n  Element's background color could not be determined due to a background gradient"
+            },
+            {
+              "target": "em",
+              "summary": "Fix any of the following:\n  Element's background color could not be determined due to a background gradient"
+            },
+            {
+              "target": ".login-story > p",
+              "summary": "Fix any of the following:\n  Element's background color could not be determined due to a background gradient"
+            },
+            {
+              "target": ".login-proof > span",
+              "summary": "Fix any of the following:\n  Element's background color could not be determined due to a background gradient"
+            },
+            {
+              "target": ".login-left-foot > span:nth-child(1)",
+              "summary": "Fix any of the following:\n  Element's background color could not be determined due to a background gradient"
+            },
+            {
+              "target": ".login-left-foot > span:nth-child(2)",
+              "summary": "Fix any of the following:\n  Element's background color could not be determined due to a background gradient"
+            }
+          ]
+        }
+      ],
+      "passes": 34,
+      "testEngine": {
+        "name": "axe-core",
+        "version": "4.13.0"
+      }
+    },
+    {
+      "label": "owner-overview",
+      "url": "http://127.0.0.1:3000/",
+      "violations": [],
+      "incomplete": [
+        {
+          "id": "color-contrast",
+          "impact": "serious",
+          "help": "Elements must meet minimum color contrast ratio thresholds",
+          "helpUrl": "https://dequeuniversity.com/rules/axe/4.13/color-contrast?application=axeAPI",
+          "nodeCount": 10,
+          "nodes": [
+            {
+              "target": ".star-one",
+              "summary": "Fix any of the following:\n  Element content contains only non-text characters"
+            },
+            {
+              "target": ".star-two",
+              "summary": "Fix any of the following:\n  Element content contains only non-text characters"
+            },
+            {
+              "target": ".banner-label",
+              "summary": "Fix any of the following:\n  Element's background color could not be determined due to a background gradient"
+            },
+            {
+              "target": ".banner-copy > h2",
+              "summary": "Fix any of the following:\n  Element's background color could not be determined due to a background gradient"
+            },
+            {
+              "target": ".banner-copy > p",
+              "summary": "Fix any of the following:\n  Element's background color could not be determined due to a background gradient"
+            },
+            {
+              "target": ".banner-link",
+              "summary": "Fix any of the following:\n  Element's background color could not be determined due to a background gradient"
+            },
+            {
+              "target": ".banner-side-note > span",
+              "summary": "Fix any of the following:\n  Element's background color could not be determined due to a background gradient"
+            },
+            {
+              "target": ".banner-side-note > strong",
+              "summary": "Fix any of the following:\n  Element's background color could not be determined due to a background gradient"
+            },
+            {
+              "target": ".banner-side-note > small",
+              "summary": "Fix any of the following:\n  Element's background color could not be determined due to a background gradient"
+            },
+            {
+              "target": ".attention-count",
+              "summary": "Fix any of the following:\n  Element content is too short to determine if it is actual text content"
+            }
+          ]
+        }
+      ],
+      "passes": 37,
+      "testEngine": {
+        "name": "axe-core",
+        "version": "4.13.0"
+      }
+    },
+    {
+      "label": "owner-tab:Campaigns",
+      "url": "http://127.0.0.1:3000/",
+      "violations": [],
+      "incomplete": [
+        {
+          "id": "color-contrast",
+          "impact": "serious",
+          "help": "Elements must meet minimum color contrast ratio thresholds",
+          "helpUrl": "https://dequeuniversity.com/rules/axe/4.13/color-contrast?application=axeAPI",
+          "nodeCount": 7,
+          "nodes": [
+            {
+              "target": ".filter-active > b",
+              "summary": "Fix any of the following:\n  Element content is too short to determine if it is actual text content"
+            },
+            {
+              "target": "span:nth-child(2) > b",
+              "summary": "Fix any of the following:\n  Element content is too short to determine if it is actual text content"
+            },
+            {
+              "target": "span:nth-child(3) > b",
+              "summary": "Fix any of the following:\n  Element content is too short to determine if it is actual text content"
+            },
+            {
+              "target": ".campaign-card:nth-child(1) > .campaign-card-bottom > span > i",
+              "summary": "Fix any of the following:\n  Element content is too short to determine if it is actual text content"
+            },
+            {
+              "target": ".campaign-card:nth-child(2) > .campaign-card-bottom > span > i",
+              "summary": "Fix any of the following:\n  Element content is too short to determine if it is actual text content"
+            },
+            {
+              "target": ".campaign-card:nth-child(3) > .campaign-card-bottom > span > i",
+              "summary": "Fix any of the following:\n  Element content is too short to determine if it is actual text content"
+            },
+            {
+              "target": ".campaign-card:nth-child(4) > .campaign-card-bottom > span > i",
+              "summary": "Fix any of the following:\n  Element content is too short to determine if it is actual text content"
+            }
+          ]
+        }
+      ],
+      "passes": 32,
+      "testEngine": {
+        "name": "axe-core",
+        "version": "4.13.0"
+      }
+    },
+    {
+      "label": "owner-tab:Adjudication",
+      "url": "http://127.0.0.1:3000/",
+      "violations": [],
+      "incomplete": [],
+      "passes": 33,
+      "testEngine": {
+        "name": "axe-core",
+        "version": "4.13.0"
+      }
+    },
+    {
+      "label": "owner-tab:Results",
+      "url": "http://127.0.0.1:3000/",
+      "violations": [],
+      "incomplete": [
+        {
+          "id": "color-contrast",
+          "impact": "serious",
+          "help": "Elements must meet minimum color contrast ratio thresholds",
+          "helpUrl": "https://dequeuniversity.com/rules/axe/4.13/color-contrast?application=axeAPI",
+          "nodeCount": 4,
+          "nodes": [
+            {
+              "target": "small[title=\"E2E-1790684682102\"]",
+              "summary": "Fix any of the following:\n  Element's background color could not be determined due to a background gradient"
+            },
+            {
+              "target": "small[title=\"Policy answer consistency\"]",
+              "summary": "Fix any of the following:\n  Element's background color could not be determined due to a background gradient"
+            },
+            {
+              "target": ".bar-col:nth-child(3) > small",
+              "summary": "Fix any of the following:\n  Element's background color could not be determined due to a background gradient"
+            },
+            {
+              "target": "small[title=\"Support response quality\"]",
+              "summary": "Fix any of the following:\n  Element's background color could not be determined due to a background gradient"
+            }
+          ]
+        }
+      ],
+      "passes": 37,
+      "testEngine": {
+        "name": "axe-core",
+        "version": "4.13.0"
+      }
+    },
+    {
+      "label": "owner-tab:Audit history",
+      "url": "http://127.0.0.1:3000/",
+      "violations": [],
+      "incomplete": [],
+      "passes": 32,
+      "testEngine": {
+        "name": "axe-core",
+        "version": "4.13.0"
+      }
+    },
+    {
+      "label": "admin-tab:Blind review",
+      "url": "http://127.0.0.1:3000/",
+      "violations": [],
+      "incomplete": [
+        {
+          "id": "color-contrast",
+          "impact": "serious",
+          "help": "Elements must meet minimum color contrast ratio thresholds",
+          "helpUrl": "https://dequeuniversity.com/rules/axe/4.13/color-contrast?application=axeAPI",
+          "nodeCount": 4,
+          "nodes": [
+            {
+              "target": ".queue-section:nth-child(2) > h3 > span",
+              "summary": "Fix any of the following:\n  Element content is too short to determine if it is actual text content"
+            },
+            {
+              "target": ".queue-section:nth-child(3) > h3 > span",
+              "summary": "Fix any of the following:\n  Element content is too short to determine if it is actual text content"
+            },
+            {
+              "target": "article:nth-child(1) > .response-card-head > .response-label > i",
+              "summary": "Fix any of the following:\n  Element content is too short to determine if it is actual text content"
+            },
+            {
+              "target": "article:nth-child(2) > .response-card-head > .response-label > i",
+              "summary": "Fix any of the following:\n  Element content is too short to determine if it is actual text content"
+            }
+          ]
+        }
+      ],
+      "passes": 32,
+      "testEngine": {
+        "name": "axe-core",
+        "version": "4.13.0"
+      }
+    },
+    {
+      "label": "admin-tab:Results",
+      "url": "http://127.0.0.1:3000/",
+      "violations": [],
+      "incomplete": [
+        {
+          "id": "color-contrast",
+          "impact": "serious",
+          "help": "Elements must meet minimum color contrast ratio thresholds",
+          "helpUrl": "https://dequeuniversity.com/rules/axe/4.13/color-contrast?application=axeAPI",
+          "nodeCount": 4,
+          "nodes": [
+            {
+              "target": "small[title=\"E2E-1790684682102\"]",
+              "summary": "Fix any of the following:\n  Element's background color could not be determined due to a background gradient"
+            },
+            {
+              "target": "small[title=\"Policy answer consistency\"]",
+              "summary": "Fix any of the following:\n  Element's background color could not be determined due to a background gradient"
+            },
+            {
+              "target": ".bar-col:nth-child(3) > small",
+              "summary": "Fix any of the following:\n  Element's background color could not be determined due to a background gradient"
+            },
+            {
+              "target": "small[title=\"Support response quality\"]",
+              "summary": "Fix any of the following:\n  Element's background color could not be determined due to a background gradient"
+            }
+          ]
+        }
+      ],
+      "passes": 37,
+      "testEngine": {
+        "name": "axe-core",
+        "version": "4.13.0"
+      }
+    },
+    {
+      "label": "reviewer-default",
+      "url": "http://127.0.0.1:3000/",
+      "violations": [],
+      "incomplete": [
+        {
+          "id": "color-contrast",
+          "impact": "serious",
+          "help": "Elements must meet minimum color contrast ratio thresholds",
+          "helpUrl": "https://dequeuniversity.com/rules/axe/4.13/color-contrast?application=axeAPI",
+          "nodeCount": 10,
+          "nodes": [
+            {
+              "target": ".star-one",
+              "summary": "Fix any of the following:\n  Element content contains only non-text characters"
+            },
+            {
+              "target": ".star-two",
+              "summary": "Fix any of the following:\n  Element content contains only non-text characters"
+            },
+            {
+              "target": ".banner-label",
+              "summary": "Fix any of the following:\n  Element's background color could not be determined due to a background gradient"
+            },
+            {
+              "target": ".banner-copy > h2",
+              "summary": "Fix any of the following:\n  Element's background color could not be determined due to a background gradient"
+            },
+            {
+              "target": ".banner-copy > p",
+              "summary": "Fix any of the following:\n  Element's background color could not be determined due to a background gradient"
+            },
+            {
+              "target": ".banner-link",
+              "summary": "Fix any of the following:\n  Element's background color could not be determined due to a background gradient"
+            },
+            {
+              "target": ".banner-side-note > span",
+              "summary": "Fix any of the following:\n  Element's background color could not be determined due to a background gradient"
+            },
+            {
+              "target": ".banner-side-note > strong",
+              "summary": "Fix any of the following:\n  Element's background color could not be determined due to a background gradient"
+            },
+            {
+              "target": ".banner-side-note > small",
+              "summary": "Fix any of the following:\n  Element's background color could not be determined due to a background gradient"
+            },
+            {
+              "target": ".attention-count",
+              "summary": "Fix any of the following:\n  Element content is too short to determine if it is actual text content"
+            }
+          ]
+        }
+      ],
+      "passes": 37,
+      "testEngine": {
+        "name": "axe-core",
+        "version": "4.13.0"
+      }
+    },
+    {
+      "label": "reviewer-panel",
+      "url": "http://127.0.0.1:3000/",
+      "violations": [],
+      "incomplete": [
+        {
+          "id": "color-contrast",
+          "impact": "serious",
+          "help": "Elements must meet minimum color contrast ratio thresholds",
+          "helpUrl": "https://dequeuniversity.com/rules/axe/4.13/color-contrast?application=axeAPI",
+          "nodeCount": 4,
+          "nodes": [
+            {
+              "target": ".queue-section:nth-child(2) > h3 > span",
+              "summary": "Fix any of the following:\n  Element content is too short to determine if it is actual text content"
+            },
+            {
+              "target": ".queue-section:nth-child(3) > h3 > span",
+              "summary": "Fix any of the following:\n  Element content is too short to determine if it is actual text content"
+            },
+            {
+              "target": "article:nth-child(1) > .response-card-head > .response-label > i",
+              "summary": "Fix any of the following:\n  Element content is too short to determine if it is actual text content"
+            },
+            {
+              "target": "article:nth-child(2) > .response-card-head > .response-label > i",
+              "summary": "Fix any of the following:\n  Element content is too short to determine if it is actual text content"
+            }
+          ]
+        }
+      ],
+      "passes": 32,
+      "testEngine": {
+        "name": "axe-core",
+        "version": "4.13.0"
+      }
+    }
+  ],
+  "tabOrderLogin": [
+    "button \"MC\"",
+    "button \"JL\"",
+    "button \"PS\"",
+    "button \"EP\"",
+    "input#login-email \"INPUT\"",
+    "input#login-password \"INPUT\"",
+    "button \"Continue to workspace\"",
+    "body \"gavel.EVALUATION OPERATIONSMake every mo\""
+  ],
+  "tabOrderWorkspace": [
+    "button \"Overview\"",
+    "button \"Campaigns\"",
+    "button \"Adjudication\"",
+    "button \"Results\"",
+    "button \"Audit history\"",
+    "button \"Open campaigns\"",
+    "button \"?Need a hand?View workspace activity\"",
+    "button \"Open user menu\""
+  ],
+  "ok": true
+}

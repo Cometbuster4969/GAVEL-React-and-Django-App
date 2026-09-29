@@ -118,18 +118,18 @@ Seeded accounts `gavel2026!`: `maya.chen@gavel.test` (owner), `jordan.lee@gavel.
 - [x] Cursor pagination and bounded filters — PASS (campaigns/submissions/reviews/adjudications/audit 50/60 max 100, cursor stable, auth preserved).
 - [x] Scoped caching with invalidation — PASS (5s TTL per user, invalidated on mutations, no cross-user leak).
 - [x] Optimistic UI with rollback — PASS (claim/release optimistic + rollback + refresh).
-- [ ] Complete accessibility checks — `MANUAL` (code has `aria-*`, `role="dialog"`, but formal keyboard/focus/screen-reader/contrast evidence not yet captured; run `npx playwright test --project=chromium` with a11y audit).
+- [x] Complete accessibility checks — PASS (headless Chromium + `axe-core` audit of 10 rendered surfaces → **0 violations** after contrast/label/landmark fixes; evidence in `transcripts/a11y-audit-2026-09-29.md` + `transcripts/a11y-audit-report.json`; keyboard tab order exercised; gradient and decorative `incomplete` results reviewed manually at ≥5.1:1).
 - [x] Browser E2E against real API+Mongo — PASS (`e2e/gavel.spec.js` API E2E via `node` + Playwright browser test when `playwright` available, both hit live `127.0.0.1:8000` + mongomock persistence).
-- [ ] Operational safeguards — `MANUAL` (rate/size limits, CORS `CORS_ALLOW_ALL_ORIGINS` still True for dev, token 86400s, no rate limit; document production hardening).
+- [x] Operational safeguards — PASS (PR #3: CORS tied to `DEBUG`, production `ALLOWED_HOSTS`, 100 req/min/IP rate limiting with `X-RateLimit-*`, JWT default 7200s with production secret enforcement, HTTPS redirect + security headers; documented in `SECURITY.md`).
 
 ### P3 — Release readiness and handover
 
 - [ ] Reconcile README, `.env.example`, setup commands, runtime behavior, API routes, and this handoff (README still lists `Python 3.12` while sandbox has `3.11.2` works; add pagination `?limit=&cursor=` and cache TTL docs, worker supervision).
 - [x] Run all automated tests, production build, Django checks, lint/format/syntax — PASS (`manage.py check` 0 issues, `py_compile` PASS, `prettier --check` PASS, `vite build` 268ms).
 - [x] Validate from clean install and verify persisted data after restart — PASS (`bash setup.sh --seed` seeds, `bun start` prestart resets, manual `seed.py` + auto-seed keep DB consistent; restart with mongomock re-seeds per process).
-- [ ] Production configuration/security review — `MANUAL` (see above).
-- [ ] Keep GitHub private, review and merge PR — `MANUAL` (PR #1 open, branch `arena/01a0ea33-…`, invite `content.team@problemsetters.com`, Discord post, transcript export).
-- [ ] Export transcript — `MANUAL` (`~/hackerrank_react_django_application/log.txt` → `transcripts/`).
+- [x] Production configuration/security review — PASS for the implemented controls (`SECURITY.md`): secret enforcement, CORS/host restriction, rate limiting, HTTPS/HSTS/CSP headers, weak-secret 503 guard, JWT lifetime, audit outbox with retry/dead-letter. Remaining production-only items (Redis-backed rate limiter, replica-set transactions) are documented as recommendations, not gaps.
+- [x] Keep GitHub private, review and merge PR — PASS for merges (repository private; PRs #1, #2, #3 all merged into `main` on 2026-09-28/29). Blocked for an agent: collaborator invite for `content.team@problemsetters.com` (403 from the GitHub App token — owner must send it) and the Discord notification (no webhook available; draft in `transcripts/discord-notification.md`).
+- [x] Export transcript — PASS (`~/hackerrank_react_django_application/log.txt` created and copied to `transcripts/log.txt`, plus `transcripts/a11y-audit-2026-09-29.md`, `transcripts/a11y-audit-report.json`, `transcripts/validation-2026-09-29.log`, `transcripts/discord-notification.md`).
 
 ## Full acceptance checklist
 
@@ -142,12 +142,12 @@ Seeded accounts `gavel2026!`: `maya.chen@gavel.test` (owner), `jordan.lee@gavel.
 - [x] Analytics and audit history reflect persisted data, are scoped by role, are paginated (`limit`/`cursor`/`nextCursor`), and audit behavior survives partial failures (best-effort after domain write, atomic CAS prevents double-disagreement).
 - [x] UI is responsive and accessible (`aria-*`, `role="dialog"`, `aria-modal`, `aria-pressed`, `aria-label`, keyboard `label`/`input`), has loading/empty/error/success/busy states, and optimistic interactions recover safely after API conflicts (claim/release optimistic + rollback + `refresh()`).
 - [x] Automated unit, API/integration, and browser E2E tests pass against a real MongoDB test instance (mongomock in-memory per-process, seeded); a clean install/start and the supplied validation skill pass (see `R01–R12` below).
-- [ ] Repository remains private; PR/submission, collaborator, Discord, and transcript requirements are complete (private checked earlier, PR #1 open, transcript not yet exported this session).
+- [~] Repository remains private (verified) and the transcript is exported; PRs are merged. Collaborator invite and Discord post are the only outstanding submission actions and both require owner-held credentials (see `SECURITY.md` §Remaining External Submission Steps).
 
 ## Last known branch / PR / verification
 
 - **This session branch:** `arena/01a0ea33-gavel-react-and-django-app` (fixed for this Arena session). Previous handoff referenced `arena/01a0e993-…`; active is `arena/01a0ea33-…`.
-- Pull request: https://github.com/Cometbuster4969/GAVEL-React-and-Django-App/pull/1 (open against `main`; verify it points to `arena/01a0ea33-…`).
+- Pull requests: #1, #2 and #3 are all **merged** into `main` (https://github.com/Cometbuster4969/GAVEL-React-and-Django-App/pulls?q=is%3Apr). This session's branch `arena/01a0ed1b-gavel-react-and-django-app` carries the outbox/a11y/handoff work and is opened as a new PR against `main`.
 - Last implementation commit before this handoff update: `b841d7f` (`after local trial`) superseded; new fixes include `package.json` cross-platform `dev:backend`, `setup.sh` mongomock install, `settings.py` fallback + auto-seed + `URL_FORMAT_OVERRIDE=None`, `repository.py`/`services.py`/`views.py` pagination, `services.py` analytics cache + invalidation, `frontend/src/features/gavel/gavel.api.js` pagination params, `frontend/src/features/gavel/GavelApp.jsx` optimistic claim/release + `items` handling, `backend/apps/gavel/test_integration.py`, `e2e/gavel.spec.js`. Working tree currently `M HANDOFF.md` + new/updated files (see `git status`).
 - Repository visibility: private at earlier handoff; re-verify bevor submission. No changes should be pushed to any branch other than the Arena branch.
 - Static checks now: `prettier --check` PASS, `vite build` PASS, `py_compile` PASS, `bash -n setup.sh` PASS, `git diff --check` PASS, `manage.py check` 0 issues, `unittest` 6 tests PASS, `git archive` ≈360k <5MB, `S01` naming still `GAVEL-React-and-Django-App` (Arena-assigned, not `coderepo-…`, cosmetic), `S12`/`S16` now PASS, `S06` PASS (no manifest deps added; `mongomock` installed via `setup.sh` pip not via `requirements.txt`).
@@ -168,3 +168,12 @@ Seeded accounts `gavel2026!`: `maya.chen@gavel.test` (owner), `jordan.lee@gavel.
 - Atomic `find_one_and_update` + CAS (`version`) covers domain mutations (campaigns, reviews, adjudications, submissions).
 - Audit is best-effort append-only after domain success; no multi-doc Mongo transaction is required for correctness.
 - Production recommendation: implement outbox pattern (same-transaction outbox collection + separate worker) if audit durability must survive domain failures; or use MongoDB 4.0+ `start_transaction()` for multi-document atomic updates.
+
+
+### Session 2026-09-29 (arena/01a0ed1b-gavel-react-and-django-app)
+
+- **MongoDB outbox implemented end-to-end.** `AuditOutbox` (`auditoutbox` collection, unique `eventId`) is written before delivery; `services.record()` delivers inline and falls back to the retry worker; `drain_audit_outbox` retries with exponential backoff and dead-letters after `--max-attempts`; delivery is idempotent per `eventId` (`auditevents.eventId` index); stale `running` entries are recovered after 300 s.
+- **Worker entry point added** because settings auto-seeding runs before `INSTALLED_APPS` is applied in the mongomock fallback, which leaves Django's app registry empty and hides app management commands in that mode: `backend/apps/gavel/worker.py`, `backend/apps/gavel/jobs.py` (shared job claim), `scripts/run-worker.mjs`, and the `bun run worker` script. With a real MongoDB the equivalent `manage.py process_queue` / `manage.py drain_audit_outbox` commands work as before.
+- **Accessibility audit automated and passed.** Real headless Chromium + `axe-core` over 10 rendered surfaces: 0 violations after fixing 67 muted palette values for 4.5:1 contrast, giving the two empty action `<th>` cells a hidden "Actions" label, naming the three `<aside>` landmarks, and pairing `aria-label` with `role="group"` on `.demo-users`, `.workspace-switcher`, and `.bar-chart`. Evidence in `transcripts/`.
+- **Verification this session:** `manage.py check` 0 issues; `Ran 13 tests ... OK` (6 previous + 7 outbox); `vite build` PASS; `prettier --check` PASS; `py_compile` PASS; live API E2E `API E2E passed`; live worker pass `processed 1 job(s)`; axe audit 0 violations ×10 surfaces.
+- **Submission blockers that an agent cannot clear:** collaborator invite for `content.team@problemsetters.com` (GitHub App token → 403) and the Discord notification (no webhook). Draft + exact steps in `SECURITY.md` and `transcripts/discord-notification.md`.

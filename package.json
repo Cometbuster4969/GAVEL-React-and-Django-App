@@ -11,7 +11,8 @@
 		"start": "concurrently \"bun run dev:backend\" \"bun run dev:frontend\"",
 		"dev:frontend": "cd frontend && bun run dev",
 		"dev:backend": "node scripts/run-backend.mjs",
-		"seed": "node scripts/run-seed.mjs"
+		"seed": "node scripts/run-seed.mjs",
+		"worker": "node scripts/run-worker.mjs"
 	},
 	"devDependencies": {
 		"concurrently": "9.2.1"
