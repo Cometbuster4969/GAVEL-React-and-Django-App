@@ -9,13 +9,14 @@ os.environ.setdefault("DJANGO_SETTINGS_MODULE", "calendar_backend.settings")
 
 import django
 
-django.setup()
+if __name__ == "__main__":
+    django.setup()
 
 import bcrypt
 from bson import ObjectId
 from mongoengine.connection import get_db
 
-from apps.gavel.models import Adjudication, AuditEvent, Campaign, CampaignRevision, GavelUser, ProcessingJob, ReviewAssignment, ResultPublication, Submission
+from apps.gavel.models import Adjudication, AuditEvent, AuditOutbox, Campaign, CampaignRevision, GavelUser, ProcessingJob, ReviewAssignment, ResultPublication, Submission
 
 
 PASSWORD = "gavel2026!"
@@ -50,12 +51,13 @@ def stamp(document, moment):
 def seed():
     database = get_db()
     database.command("ping")
-    for model in (GavelUser, Campaign, CampaignRevision, Submission, ReviewAssignment, Adjudication, ProcessingJob, ResultPublication, AuditEvent):
-        model.ensure_indexes()
-    collection_names = {"gavelusers", "campaigns", "campaignrevisions", "submissions", "reviewassignments", "adjudications", "processingjobs", "resultpublications", "auditevents"}
+    collection_names = {"gavelusers", "campaigns", "campaignrevisions", "submissions", "reviewassignments", "adjudications", "processingjobs", "resultpublications", "auditevents", "auditoutbox", "ratelimitcounters"}
     for name in collection_names:
         if name in database.list_collection_names():
             database[name].delete_many({})
+
+    for model in (GavelUser, Campaign, CampaignRevision, Submission, ReviewAssignment, Adjudication, ProcessingJob, ResultPublication, AuditEvent, AuditOutbox):
+        model.ensure_indexes()
 
     now = datetime.now(timezone.utc)
     password_hash = bcrypt.hashpw(PASSWORD.encode(), bcrypt.gensalt(rounds=10)).decode()
@@ -169,7 +171,7 @@ def seed():
         second = ObjectId(second_id)
         pair_key = f"{campaign_reviewing.id}:{case_id}:{first}:{second}"
         if pair_index == 1:
-            states = [(by_role["reviewer"], first), (users[3], first)]
+            states = [(users[2], first), (users[3], first)]
         elif pair_index == 2:
             states = [(users[2], first), (users[3], second)]
         else:
@@ -193,6 +195,10 @@ def seed():
                 claimed_at=now if reviewer else None,
                 completed_at=now if reviewer else None,
             ), now))
+    for assignment in assignments:
+        if assignment.reviewer_id:
+            assignment.reviewer_key = str(assignment.reviewer_id)
+            assignment.reviewer_group = "user:" + str(assignment.reviewer_id)
     ReviewAssignment.objects.insert(assignments)
 
     case_two_pair = assignments[2].pair_key

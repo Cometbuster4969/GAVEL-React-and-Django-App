@@ -3,6 +3,17 @@ from mongoengine import BooleanField, DateTimeField, DictField, Document, IntFie
 from apps.shared.documents import TimestampedDocument
 
 
+class AuditedDocument(TimestampedDocument):
+    meta = {"abstract": True}
+    audit_pending = ListField(DictField(), db_field="auditPending", default=list)
+
+    def save(self, *args, **kwargs):
+        if not self._created and not kwargs.get("force_insert"):
+            raise RuntimeError("Existing audited documents must use audit.update(), not save().")
+        return super().save(*args, **kwargs)
+
+
+
 class GavelUser(TimestampedDocument):
     meta = {
         "collection": "gavelusers",
@@ -14,16 +25,19 @@ class GavelUser(TimestampedDocument):
     password_hash = StringField(db_field="passwordHash", required=True)
     role = StringField(required=True, choices=("administrator", "owner", "reviewer", "adjudicator"))
     active = BooleanField(default=True)
+    review_identity_locked = BooleanField(db_field="reviewIdentityLocked", default=False)
+    independence_group = StringField(db_field="independenceGroup", default="", max_length=120)
     conflict_campaign_ids = ListField(ObjectIdField(), db_field="conflictCampaignIds", default=list)
     conflict_model_names = ListField(StringField(max_length=120), db_field="conflictModelNames", default=list)
 
 
-class Campaign(TimestampedDocument):
+class Campaign(AuditedDocument):
     meta = {
         "collection": "campaigns",
         "indexes": [{"fields": ["status", "updated_at"], "name": "campaign_status_updated_idx"}],
     }
 
+    deleted = BooleanField(default=False)
     name = StringField(required=True, max_length=120)
     summary = StringField(default="", max_length=500)
     owner_id = ObjectIdField(db_field="ownerId", required=True)
@@ -50,7 +64,7 @@ class CampaignRevision(TimestampedDocument):
     immutable = BooleanField(default=True)
 
 
-class Submission(TimestampedDocument):
+class Submission(AuditedDocument):
     meta = {
         "collection": "submissions",
         "indexes": [
@@ -72,13 +86,17 @@ class Submission(TimestampedDocument):
     revision_id = ObjectIdField(db_field="revisionId", null=True)
 
 
-class ReviewAssignment(TimestampedDocument):
+class ReviewAssignment(AuditedDocument):
     meta = {
         "collection": "reviewassignments",
         "indexes": [
             {"fields": ["campaign_id", "pair_key"], "name": "review_pair_idx"},
             {"fields": ["campaign_id", "pair_key", "slot"], "unique": True, "name": "review_pair_slot_unique_idx"},
             {"fields": ["campaign_id", "status", "reviewer_id"], "name": "review_queue_idx"},
+            {"fields": ["campaign_id", "pair_key", "reviewer_key"], "unique": True,
+             "partialFilterExpression": {"reviewerKey": {"$type": "string"}}, "name": "review_independent_user_idx"},
+            {"fields": ["campaign_id", "pair_key", "reviewer_group"], "unique": True,
+             "partialFilterExpression": {"reviewerGroup": {"$type": "string"}}, "name": "review_independent_group_idx"},
 
         ],
     }
@@ -90,6 +108,8 @@ class ReviewAssignment(TimestampedDocument):
     submission_b_id = ObjectIdField(db_field="submissionBId", required=True)
     slot = IntField(default=0, min_value=0, max_value=1)
     reviewer_id = ObjectIdField(db_field="reviewerId", null=True)
+    reviewer_key = StringField(db_field="reviewerKey")
+    reviewer_group = StringField(db_field="reviewerGroup")
     status = StringField(default="available", choices=("available", "claimed", "completed"))
     winner_id = ObjectIdField(db_field="winnerId", null=True)
     notes = StringField(default="", max_length=1200)
@@ -101,7 +121,7 @@ class ReviewAssignment(TimestampedDocument):
     completed_at = DateTimeField(db_field="completedAt", null=True)
 
 
-class Adjudication(TimestampedDocument):
+class Adjudication(AuditedDocument):
     meta = {
         "collection": "adjudications",
         "indexes": [{"fields": ["campaign_id", "pair_key"], "unique": True, "name": "adjudication_pair_unique_idx"}],
@@ -136,7 +156,7 @@ class ProcessingJob(TimestampedDocument):
     error = StringField(default="", max_length=500)
 
 
-class ResultPublication(TimestampedDocument):
+class ResultPublication(AuditedDocument):
     meta = {
         "collection": "resultpublications",
         "indexes": [{"fields": ["campaign_id", "version"], "unique": True, "name": "result_publication_unique_idx"}],
@@ -155,7 +175,8 @@ class AuditEvent(TimestampedDocument):
         "collection": "auditevents",
         "indexes": [
             {"fields": ["created_at"], "name": "audit_created_idx"},
-            {"fields": ["event_id"], "name": "audit_event_event_id_idx", "sparse": True},
+            {"fields": ["event_id"], "name": "audit_event_id_unique_v2", "unique": True,
+             "partialFilterExpression": {"eventId": {"$type": "string"}}},
         ],
     }
 
@@ -171,8 +192,8 @@ class AuditEvent(TimestampedDocument):
 class AuditOutbox(TimestampedDocument):
     """Durable audit intent, delivered into ``auditevents`` by a retrying worker.
 
-    Every domain mutation writes its audit intent here first, so the intent
-    survives a failed ``AuditEvent`` write. Delivery is attempted inline for a
+    Domain mutations first embed auditPending in the business document; relay
+    upserts it here before removing that embedded intent. Delivery is attempted inline for a
     live audit feed and retried with backoff by ``manage.py drain_audit_outbox``
     (the worker mirrors the ``process_queue`` job pattern). ``eventId`` makes
     delivery idempotent: re-running the worker cannot duplicate an audit event.

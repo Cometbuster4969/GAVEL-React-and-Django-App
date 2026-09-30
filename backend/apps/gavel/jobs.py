@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from pymongo import ReturnDocument
 
@@ -14,6 +14,9 @@ def process_next_job(limit=25):
     jobs with the same atomic compare-and-set. Returns 1 when a job was claimed.
     """
     now = datetime.now(timezone.utc)
+    ProcessingJob._get_collection().update_many(
+        {"status": "running", "lockedAt": {"$lt": now - timedelta(minutes=5)}},
+        {"$set": {"status": "queued", "availableAt": now}})
     job = ProcessingJob._get_collection().find_one_and_update(
         {"status": "queued", "availableAt": {"$lte": now}},
         {"$set": {"status": "running", "lockedAt": now}, "$inc": {"attempts": 1}},
@@ -23,14 +26,14 @@ def process_next_job(limit=25):
     if job is None:
         return 0
     try:
-        process_submissions(None, str(job["campaignId"]), limit)
+        result = process_submissions(None, str(job["campaignId"]), limit)
         ProcessingJob._get_collection().update_one(
-            {"_id": job["_id"], "status": "running"},
-            {"$set": {"status": "completed", "updatedAt": datetime.now(timezone.utc)}},
+            {"_id": job["_id"], "status": "running", "lockedAt": job["lockedAt"]},
+            {"$set": {"status": "queued" if result["queued"] else "completed", "updatedAt": datetime.now(timezone.utc)}},
         )
     except Exception as error:
         ProcessingJob._get_collection().update_one(
-            {"_id": job["_id"], "status": "running"},
+            {"_id": job["_id"], "status": "running", "lockedAt": job["lockedAt"]},
             {"$set": {"status": "failed", "error": str(error)[:500], "updatedAt": datetime.now(timezone.utc)}},
         )
     return 1

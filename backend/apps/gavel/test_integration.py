@@ -91,29 +91,30 @@ class LifecycleIntegrationTests(unittest.TestCase):
         )
         self.assertIn("review", res)
         self.assertIn("weightedScore", res["review"])
-        # Sam opposite
+        # Sam must prefer the other underlying submission, regardless of blind ordering.
         reviews_s = services.list_reviews(self.sam, campaign_id=camp_id)
-        if isinstance(reviews_s, dict):
-            reviews_s = reviews_s["items"]
         avail_s = [r for r in reviews_s if r["status"] == "available"]
-        if avail_s:
-            rid2 = avail_s[0]["id"]
-            services.claim_review(self.sam, rid2)
-            res2 = services.submit_review(
-                self.sam, rid2, {"choice": "b", "notes": "other", "criterionScores": {"r1": {"a": 2, "b": 5}, "r2": {"a": 3, "b": 5}}}
-            )
-            self.assertIn("review", res2)
-        # Adjudication if created
+        self.assertEqual(len(avail_s), 1)
+        rid2 = avail_s[0]["id"]
+        claimed_s = services.claim_review(self.sam, rid2)
+        jordan_winner = res["review"]["left"]["output"]
+        sam_choice = "a" if claimed_s["left"]["output"] != jordan_winner else "b"
+        res2 = services.submit_review(self.sam, rid2, {
+            "choice": sam_choice, "notes": "other",
+            "criterionScores": {"r1": {"a": 2, "b": 5}, "r2": {"a": 3, "b": 5}}})
+        self.assertTrue(res2["disagreementDetected"])
         adjs = services.list_adjudications(self.priya, campaign_id=camp_id)
-        if isinstance(adjs, dict):
-            adjs = adjs["items"]
-        if adjs:
-            open_adjs = [a for a in adjs if a["status"] == "open"]
-            if open_adjs:
-                resolved = services.resolve_adjudication(
-                    self.priya, open_adjs[0]["id"], {"choice": "a", "rationale": "Rationale long enough for test."}
-                )
-                self.assertEqual(resolved["status"], "resolved")
+        self.assertEqual(len(adjs), 1)
+        self.assertEqual(adjs[0]["status"], "open")
+        from apps.shared.errors import AppError
+        with self.assertRaises(AppError) as blocked:
+            services.transition_campaign(self.maya, camp_id, "completed")
+        self.assertEqual(blocked.exception.code, "REVIEWS_REMAIN")
+        resolved = services.resolve_adjudication(self.priya, adjs[0]["id"], {
+            "choice": "a", "rationale": "Rationale long enough for test."})
+        self.assertEqual(resolved["status"], "resolved")
+        with self.assertRaises(AppError):
+            services.resolve_adjudication(self.priya, adjs[0]["id"], {"choice": "b", "rationale": "Cannot overwrite a decision."})
         # Complete
         camp = services.transition_campaign(self.maya, camp_id, "completed")
         self.assertEqual(camp["status"], "completed")
@@ -178,13 +179,11 @@ class LifecycleIntegrationTests(unittest.TestCase):
         # Review payload must not contain model names or submission IDs
         # Use seeded reviewing campaign
         camp = Campaign.objects(status="reviewing").first()
-        if not camp:
-            self.skipTest("no reviewing campaign seeded")
+        self.assertIsNotNone(camp, "reviewing seed must exist")
         reviews = services.list_reviews(self.jordan, campaign_id=str(camp.id))
         if isinstance(reviews, dict):
             reviews = reviews["items"]
-        if not reviews:
-            self.skipTest("no reviews")
+        self.assertTrue(reviews, "review seed must exist")
         payload = reviews[0]
         self.assertNotIn("modelName", str(payload))
         self.assertNotIn("submissionAId", str(payload))

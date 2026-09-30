@@ -31,10 +31,15 @@ def issue_token(user):
     return jwt.encode(payload, settings.JWT_SECRET, algorithm=TOKEN_ALGORITHM)
 
 
+# A cached dummy hash makes the unknown-account path perform the same bcrypt work.
+_DUMMY_PASSWORD_HASH = bcrypt.hashpw(b"gavel-dummy-login-password", bcrypt.gensalt(rounds=10))
+
+
 def login(email, password):
     user = repository.find_user_by_email(email.strip().lower())
-    valid = user is not None and bcrypt.checkpw(password.encode(), user.password_hash.encode())
-    if not valid:
+    candidate_hash = user.password_hash.encode() if user is not None else _DUMMY_PASSWORD_HASH
+    password_matches = bcrypt.checkpw(password.encode(), candidate_hash)
+    if user is None or not password_matches:
         raise AppError(401, "INVALID_CREDENTIALS", "Email or password is incorrect.")
     return {"user": public_user(user), "token": issue_token(user)}
 

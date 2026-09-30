@@ -2,7 +2,7 @@
 	"name": "gavel",
 	"version": "1.0.0",
 	"private": true,
-	"description": "AI evaluation operations platform \u2014 React and Django",
+	"description": "AI evaluation operations platform — React and Django",
 	"workspaces": [
 		"frontend"
 	],
@@ -12,7 +12,8 @@
 		"dev:frontend": "cd frontend && bun run dev",
 		"dev:backend": "node scripts/run-backend.mjs",
 		"seed": "node scripts/run-seed.mjs",
-		"worker": "node scripts/run-worker.mjs"
+		"worker": "node scripts/run-worker.mjs",
+		"test": "node e2e/gavel.spec.js"
 	},
 	"devDependencies": {
 		"concurrently": "9.2.1"

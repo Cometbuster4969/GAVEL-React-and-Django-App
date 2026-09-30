@@ -30,18 +30,18 @@ The core workflow is draft → published → running → reviewing → completed
 6. Atomic review claiming to prevent two reviewers from taking the same assignment.
 7. Automatic disagreement detection and adjudication with an immutable final decision rationale.
 8. Stored campaign analytics, preference outcomes, throughput metrics, and append-only audit history.
-9. Durable audit outbox: audit intent is persisted before delivery, retried with backoff by the worker, and dead-lettered for operators instead of being dropped.
+9. Atomic audit intent: each domain write embeds its event in the same MongoDB document; a durable outbox relays it with idempotent delivery, retries, and operator-visible failures.
 
 ## Technology stack
 
-- **Frontend:** React 19.2.4, Vite 8.2.2, JavaScript, and the existing Roboto Fontsource package.
+- **Frontend:** React 19.2.4, Vite 8.2.2, JavaScript, and the Roboto Fontsource package.
 - **Backend:** Python 3.12, Django 5.1.5, Django REST Framework 3.15.2.
 - **Persistence:** MongoDB 8+ through MongoEngine 0.29.1. The Django ORM is not used.
-- **Authentication:** bcrypt password hashes and signed JWT bearer tokens using the existing PyJWT dependency.
-- **Tooling:** Bun 1.3+ workspace, Vite production build, `uv` for the Python virtual environment, and the supplied repository validation skill.
+- **Authentication:** bcrypt password hashes and signed JWT bearer tokens using PyJWT.
+- **Tooling:** Bun workspace, Vite production build, Python virtual environment.
 - **Runtime ports:** React/Vite on `3000`; Django API on `8000`; MongoDB on `27017`.
 
-No external component library, hosted service, or new runtime dependency is used.
+The product uses no external component library or hosted service. Dependencies strictly adhere to the frozen baseline.
 
 ## Project structure
 
@@ -49,35 +49,55 @@ No external component library, hosted service, or new runtime dependency is used
 .
 ├── frontend/
 │   ├── src/App.jsx                   # React entry boundary
-│   ├── src/features/gavel/           # Workspace shell, product flows, and Gavel API client
+│   ├── src/features/gavel/           # Workspace shell, pages, components, modals, and API client
+│   │   ├── components/               # Shared UI cards, metrics, and navigation
+│   │   ├── pages/                    # Role-specific workspaces (Campaigns, Reviews, Adjudications, Audit)
+│   │   ├── modals/                   # Creation and editing dialogs
+│   │   ├── constants.js              # Rubric templates, role definitions, and navigation tabs
+│   │   ├── format.js                 # Display formatters and helpers
+│   │   └── gavel.api.js              # Frontend API client
 │   ├── src/shared/api/               # Authenticated JSON API client
 │   └── public/                       # Local favicon
 ├── backend/
 │   ├── apps/gavel/                   # Identity, campaigns, submissions, reviews, decisions, analytics, audit outbox
-│   │   ├── worker.py                 # Standalone worker entry point (submission jobs + audit outbox)
-│   │   ├── views.py                  # Thin HTTP handlers
-│   │   ├── services.py               # Domain rules and lifecycle workflows
-│   │   ├── repository.py             # MongoEngine query boundary
-│   │   └── models.py                 # MongoDB documents and indexes
+│   │   ├── apps.py                   # Django AppConfig and lifecycle initialization
+│   │   ├── audit.py                  # Atomic embedded audit intent and relay
+│   │   ├── auth.py                   # Authentication, token generation, constant-time bcrypt verification
+│   │   ├── jobs.py                   # Processing queue workers and state machines
+│   │   ├── models.py                 # MongoEngine documents, indexes, and collections
+│   │   ├── repository.py             # Database query and persistence boundary
+│   │   ├── services.py               # Domain business logic and lifecycle coordination
+│   │   ├── views.py                  # HTTP handlers and response formatting
+│   │   └── worker.py                 # Standalone background worker (jobs + audit relay)
 │   ├── apps/shared/                  # MongoDB health, API errors, rendering, timestamps
-│   ├── calendar_backend/             # Django settings and URL composition
+│   ├── calendar_backend/             # Django settings, security middleware, and URL routing
 │   └── scripts/seed.py               # Deterministic demo data and reset
-├── scripts/run-worker.mjs            # `bun run worker` launcher
-├── skills/validate/                  # Supplied static/runtime repository verifier
-├── transcripts/                      # AI interaction log export + audit evidence for submission
+├── e2e/
+│   └── gavel.spec.js                 # Complete lifecycle test
+├── scripts/
+│   ├── run-backend.mjs               # Backend runner
+│   ├── run-seed.mjs                  # Seed runner
+│   ├── run-setup.mjs                 # Setup runner
+│   ├── run-worker.mjs                # Worker runner
+│   └── test-backend.py               # Isolated backend test runner
+├── skills/validate/                  # Repository validation skill
+├── transcripts/                      # AI session logs and verification records
 ├── .vscode/launch.json               # Django debugger configuration
 ├── hackerrank.yml                    # HackerRank install/run contract
+├── package.json                      # Bun workspace manifest
 └── setup.sh                          # Environment setup, MongoDB check, and seed reset
 ```
 
 ## Prerequisites
 
 - Bun 1.3 or later
-- Python 3.12
-- `uv`
+- Python 3.12 (Python 3.11+ supported)
 - MongoDB 8 or later available at `127.0.0.1:27017`
 
-`setup.sh` creates missing `.env` files from the committed examples, prepares `.venv`, checks MongoDB, and restores the seeded baseline. The connection URI is centralized in `backend/.env` and defaults to `mongodb://127.0.0.1:27017/gavel_db`.
+Acceptance and deployment require real MongoDB. Development can fall back to
+MongoMock when installed in non-production environments. Production refuses the mock fallback.
+
+`setup.sh` creates missing `.env` files from committed examples, prepares `.venv`, checks MongoDB, and restores the seeded baseline. The connection URI is centralized in `backend/.env` and defaults to `mongodb://127.0.0.1:27017/gavel_db`.
 
 ## Install and run
 
@@ -86,36 +106,82 @@ bun install && bash setup.sh --seed
 bun start
 ```
 
+`bun start` launches the API on port 8000 and the frontend on port 3000. For queued
+processing and audit outbox relay, run `bun run worker` in a separate terminal using
+the same MongoDB database. The UI also provides interactive batch-processing actions.
+
 Open [http://localhost:3000](http://localhost:3000). The backend health endpoint is [http://localhost:8000/api/v1/health](http://localhost:8000/api/v1/health); it reports API and MongoDB readiness separately.
 
-`bun start` runs the setup/seed prestart step before launching Django and Vite. Starting the product resets its application collections to the documented seed state; do not use this command when you need to preserve ad hoc database records.
+`bun start` runs the setup/seed prestart step before launching Django and Vite. Starting the product resets application collections to the deterministic seed state.
 
-## Demo access
+## Database configuration and seed data
+
+The application stores data in MongoDB across the following collections:
+
+| Collection | Purpose |
+|---|---|
+| `gavelusers` | User accounts, hashed passwords, roles, and review independence groups. |
+| `campaigns` | Evaluation campaigns, draft/published test cases, and rubrics. |
+| `campaignrevisions` | Immutable snapshots of published campaign versions. |
+| `submissions` | Model outputs queued or processed for pairwise review. |
+| `reviewassignments` | Assigned pairs for double-blind reviewer evaluation. |
+| `adjudications` | Disagreements flagged between reviewers, awaiting adjudicator resolution. |
+| `processingjobs` | Asynchronous submission batch processing tasks. |
+| `resultpublications` | Published campaign outcomes, Elo rankings, and win rates. |
+| `auditevents` | Append-only audit history of all critical operations. |
+| `auditoutbox` | Durable outbox for idempotent relay of embedded audit intents. |
+| `ratelimitcounters` | Shared MongoDB-backed fixed-window rate-limiting counters. |
+
+The database is deterministically populated by `backend/scripts/seed.py` (invoked via `bun run seed` or `bash setup.sh --seed`).
+
+## Environment variables
+
+Committed example files `.env.example`, `backend/.env.example`, and `frontend/.env.example` specify defaults:
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `NODE_ENV` | `development` | Runtime environment (`development` or `production`). |
+| `MONGODB_URI` | `mongodb://127.0.0.1:27017/gavel_db` | Connection string for MongoDB. |
+| `DJANGO_SECRET_KEY` | Development key | Django security secret. |
+| `JWT_SECRET` | Development key | Secret key for signing session tokens. |
+| `CORS_ALLOWED_ORIGINS` | `http://localhost:3000,http://127.0.0.1:3000` | Allowed frontend origins. |
+| `TRUSTED_PROXY_CIDRS` | `""` | Comma-separated CIDRs trusted to supply `X-Forwarded-For`. |
+| `VITE_API_URL` | `http://localhost:8000` | Backend API URL for frontend client. |
+
+## Demo accounts
 
 All seeded accounts use the demo password `gavel2026!`.
 
-| Role | Email |
-|---|---|
-| Campaign owner | `maya.chen@gavel.test` |
-| Reviewer | `jordan.lee@gavel.test` |
-| Reviewer | `sam.rivera@gavel.test` |
-| Adjudicator | `priya.shah@gavel.test` |
-| Administrator | `elena.park@gavel.test` |
+| Role | Email | Display name |
+|---|---|---|
+| Administrator | `elena.park@gavel.test` | Elena Park |
+| Campaign owner | `maya.chen@gavel.test` | Maya Chen |
+| Reviewer | `jordan.lee@gavel.test` | Jordan Lee |
+| Reviewer | `sam.rivera@gavel.test` | Sam Rivera |
+| Adjudicator | `priya.shah@gavel.test` | Priya Shah |
 
-The login screen includes shortcuts for each demo identity. Review assignments hide system identity and randomize left/right ordering independently for each reviewer.
+The login screen includes quick shortcuts for Elena, Maya, Jordan, and Priya; Sam can log in directly using credentials. Review assignments hide model identity and randomize left/right ordering independently per reviewer.
 
 ## Commands
 
 | Command | Purpose |
 |---|---|
-| `bun install` | Install the pinned JavaScript workspace. |
-| `bash setup.sh --seed` | Prepare Python/MongoDB and reset seeded application data. |
-| `bun start` | Seed the baseline and run the complete frontend and backend. |
-| `bun run seed` | Rebuild the deterministic MongoDB demo baseline. |
-| `bun run worker` | Run the background worker: queued submission jobs plus the audit outbox (add `-- --once` for a single pass). |
-| `bun run dev:backend` | Run the Django API on port 8000 after setup. |
-| `bun run dev:frontend` | Run the Vite app on port 3000. |
-| `cd frontend && bun run build` | Build the React application for production. |
-| `./.venv/bin/python backend/manage.py check` | Run Django's configuration checks using the prepared Python environment. |
+| `bun install` | Install workspace dependencies. |
+| `bash setup.sh --seed` | Prepare Python environment, verify MongoDB, and reset seed data. |
+| `bun start` | Seed baseline and run frontend (port 3000) and backend (port 8000). |
+| `bun run seed` | Rebuild deterministic seed baseline in MongoDB. |
+| `bun run worker` | Run background worker for submission jobs and audit outbox (add `-- --once` for single pass). |
+| `bun run dev:backend` | Run Django API on port 8000. |
+| `bun run dev:frontend` | Run Vite frontend on port 3000. |
+| `cd frontend && bun run build` | Build React production bundle. |
+| `.venv/bin/python backend/manage.py test apps.gavel` | Run the complete 35-test backend test suite. |
+| `.venv/bin/python scripts/test-backend.py` | Run backend tests against an isolated temporary database. |
+| `node e2e/gavel.spec.js` | Run the complete end-to-end API and workflow verification. |
 
-The authoritative HackerRank commands are `bun install && bash setup.sh --seed` for install and `bun start` for run. Before submission, run `skills/validate/SKILL.md`, export the transcript log to `transcripts/`, and resolve every validation failure.
+## Architecture and security controls
+
+- **Atomic audit intent & durable outbox:** Audited domain writes embed their audit event within the same MongoDB document (`auditPending`). A durable outbox relays events with idempotent upsert into `auditevents`. At 1,000 pending intents on a single document, further mutations return `503 AUDIT_BACKLOG` to protect history integrity.
+- **Pagination & cursor integrity:** Paginated collections use descending `(timestamp, _id)` ordering with strict cursor tie-breaking. Owner, reviewer, and adjudication scopes are applied in MongoDB prior to pagination limits.
+- **Reviewer independence & blind review:** Reviewers evaluate anonymized pairs with randomized positioning. Reviewer independence groups prevent the same person or affiliated accounts from taking both evaluation slots for a pair. Operators can provision verified identity groups via `manage.py set_review_identity`.
+- **Constant-time authentication:** Unknown accounts and incorrect passwords both execute a bcrypt verification with uniform work factor, preventing timing-based user enumeration.
+- **Distributed rate limiting:** `RateLimitMiddleware` maintains atomic counters in MongoDB `ratelimitcounters`, enforcing shared quotas across API instances.

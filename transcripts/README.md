@@ -1,23 +1,37 @@
-# Transcripts
+# Transcripts and historical verification evidence
 
-Exported AI interaction and verification evidence for the HackerRank *Build Your Own
-Full-Stack Application* submission. `AGENTS.md` §2 keeps the live transcript log in
-`$HOME/hackerrank_react_django_application/log.txt`; §6.2 requires a copy here at
-submission time. `transcripts/` is marked `export-ignore` in `.gitattributes`, so these
-files ship with the repository but stay out of the submission archive.
+Index updated **2026-09-30**. These files preserve prior evidence; their presence
+is not proof that the latest working tree has passed the same checks.
 
-| File | Contents |
+[AGENTS.md](../AGENTS.md) defines append-only session logging and submission-time
+export. `transcripts/` is `export-ignore` in `.gitattributes`: the files remain
+in the private repository but are excluded from `git archive` output. Ensure the
+reviewer receives repository access, not only an archive without the transcripts.
+
+| File | Contents and scope |
 |---|---|
-| `log.txt` | The append-only conversation log, copied verbatim from `$HOME/hackerrank_react_django_application/log.txt`. |
-| `a11y-audit-2026-09-29.md` | Accessibility audit report: method, results per surface, violations found and fixed, residual manual-review items, reproduce steps. |
-| `a11y-audit-report.json` | Raw `axe-core` results for all 10 audited surfaces, including per-node failure summaries. |
-| `validation-2026-09-29.log` | Captured output of the verification commands run against this revision (install, seed, Django check, 13 tests, worker pass, production build, Prettier, `py_compile`, health probe, live API E2E). |
-| `discord-notification.md` | Draft submission post plus the exact steps, because posting to Discord needs owner-held credentials. |
+| [log.txt](log.txt) | Existing AI history export; preserve verbatim. Contains a labeled reconstruction of earlier sessions, not a complete verbatim record of all sessions. |
+| [a11y-audit-2026-09-29.md](a11y-audit-2026-09-29.md) | Historical accessibility method/results for ten rendered surfaces, plus residual manual-review items. Not rerun after the frontend split. |
+| [a11y-audit-report.json](a11y-audit-report.json) | Original raw axe results supporting the September 29 audit. |
+| [validation-2026-09-29.log](validation-2026-09-29.log) | Captured commands/results from the older revision, including 13 tests; not evidence for the latest 35-test working tree. |
+| [discord-notification.md](discord-notification.md) | Updated submission/status message template. Not a receipt proving a Discord post was sent. |
 
-## Log provenance
+## Latest results and export completeness
 
-The home-directory log file did not exist when this session started, so the browser-local
-history of earlier sessions was unavailable. `log.txt` therefore opens with a clearly
-labelled reconstruction of the three earlier sessions drawn from repository evidence
-(git history, merged pull requests, `report.md`, `HANDOFF.md`, `SECURITY.md`, `test.md`),
-followed by the verbatim prompt and full record of the session that produced this export.
+The September 30 hardening results are documented in [README.md](../README.md).
+The documentation update does not rerun historical checks, overwrite logs, or
+manufacture tool-native conversation exports.
+
+The original home-directory log was unavailable when the older export was
+assembled. As disclosed in `log.txt`, earlier sessions were reconstructed from
+repository evidence, followed by the session record available at that time.
+That reconstruction must not be described as verbatim original conversation.
+
+Before final submission, export every available current AI session from its
+source, preserve older exports, and disclose any unrecoverable gaps. A Markdown
+summary of changes is not a substitute for a complete interaction transcript.
+Completeness of all sessions has **not** been independently verified in this
+sandbox. Do not overwrite the existing export with a newer partial log.
+
+The user reports submission/access logistics are handled. This index does not
+assert that collaborator access or a Discord notification is still pending.

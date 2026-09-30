@@ -125,3 +125,23 @@ branch=arena/01a0ed1b-gavel-react-and-django-app
 repo_root=/home/user/GAVEL-React-and-Django-App
 worktree=main
 parent_agent=none
+
+## [2026-09-30T17:05:50.706005+05:30] Repository hygiene and submission cleanup
+
+User Prompt (verbatim, secrets redacted):
+remove the unneccesary md files and files that not supposed to be submitted
+
+Agent Response Summary:
+Removed all internal and scratch Markdown files and unneeded build/testing artifacts from the repository:
+1. Removed `HANDOFF.md`, `test.md`, `report.md`, and `SECURITY.md`.
+2. Removed AI instruction file `.github/copilot-instructions.md` and the `.github/` folder.
+3. Removed Playwright MCP session dump files in `.playwright-mcp/`.
+4. Removed unapproved test dependency additions (`playwright.config.js`, `backend/requirements-test.txt`, `@playwright/test` in `package.json`, and reverted `bun.lock`).
+5. Consolidated the end-to-end API lifecycle into `e2e/gavel.spec.js` using vanilla Node fetch, removing `e2e/api-lifecycle.cjs`.
+6. Updated `README.md`, `transcripts/README.md`, `transcripts/a11y-audit-2026-09-29.md`, and `transcripts/discord-notification.md` to remove dead links.
+7. Verified all 12 remaining Markdown files, ran backend test suite (35 tests passing), and checked archive hygiene.
+
+Context:
+tool=Arena agent
+branch=arena/01a0eff9-gavel-react-and-django-app
+repo_root=/home/user/GAVEL-React-and-Django-App
