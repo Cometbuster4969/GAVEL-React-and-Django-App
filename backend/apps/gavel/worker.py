@@ -7,11 +7,9 @@ bun run worker              # from the repository root
 .venv/bin/python -m apps.gavel.worker --once    # from backend/
 ```
 
-The management commands (``process_queue``, ``drain_audit_outbox``) cover the
-same work when Django's app registry is fully loaded (a real MongoDB
-deployment). This entry point imports the domain modules directly, so it also
-works in the in-memory mongomock fallback where settings auto-seeding runs
-before ``INSTALLED_APPS`` is applied and app-config discovery is unavailable.
+The management commands (``process_queue``, ``drain_audit_outbox``) share the
+same job/audit implementation. Both entry points initialize Django normally.
+MongoMock is process-local; use real MongoDB for separate API/worker processes.
 """
 
 import argparse

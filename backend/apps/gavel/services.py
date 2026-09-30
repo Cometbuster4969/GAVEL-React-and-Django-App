@@ -4,13 +4,13 @@ from collections import defaultdict
 from datetime import datetime, timedelta, timezone
 
 from bson import ObjectId
-from pymongo import ReturnDocument
+from pymongo.errors import DuplicateKeyError
 from mongoengine.errors import NotUniqueError
 
 from apps.shared.errors import AppError
 
-from . import repository
-from .models import Adjudication, AuditEvent, Campaign, CampaignRevision, ProcessingJob, ResultPublication, ReviewAssignment, Submission
+from . import audit, repository
+from .models import Adjudication, AuditEvent, Campaign, CampaignRevision, GavelUser, ProcessingJob, ResultPublication, ReviewAssignment, Submission
 
 
 OWNER_ROLES = ("administrator", "owner")
@@ -57,7 +57,9 @@ def ensure_owner(user, campaign):
 
 
 def record(user, action, entity_type, entity_id, details=None):
-    """Write audit intent to the outbox, then attempt inline delivery.
+    """Record a standalone event, not a domain mutation.
+
+    Domain mutations MUST use audit.create/update to bind intent atomically.
 
     The outbox write is the durability boundary: if delivery fails, the intent
     stays pending and ``drain_audit_outbox`` retries it with backoff. The inline
@@ -65,15 +67,9 @@ def record(user, action, entity_type, entity_id, details=None):
     """
     if user is None:
         return None
-    try:
-        entry = repository.enqueue_audit_outbox(user, action, entity_type, entity_id, details)
-    except Exception:
-        # Fall back to the direct append-only write when the outbox is unavailable.
-        try:
-            repository.record_audit(user, action, entity_type, entity_id, details)
-        except Exception:
-            pass
-        return None
+    # Never silently discard audit intent. Callers must see the failure so they
+    # can fail closed rather than acknowledge an unaudited mutation.
+    entry = repository.enqueue_audit_outbox(user, action, entity_type, entity_id, details)
     try:
         repository.deliver_audit_event(entry)
         repository.mark_audit_outbox_delivered(entry.event_id, datetime.now(timezone.utc))
@@ -89,6 +85,7 @@ def drain_audit_outbox(limit=25, max_attempts=5, base_delay=30):
     Returns counters for the worker's log line. Delivery is idempotent per
     ``eventId``, so running this more than once never duplicates audit rows.
     """
+    audit.relay_pending()
     now = datetime.now(timezone.utc)
     repository.recover_stale_audit_outbox(now - timedelta(seconds=300))
     stats = {"scanned": 0, "delivered": 0, "retried": 0, "failed": 0}
@@ -128,11 +125,12 @@ def current_revision(campaign):
 
 def mark_reviewing(campaign):
     now = datetime.now(timezone.utc)
-    result = Campaign._get_collection().update_one(
+    result = audit.update(Campaign,
         {"_id": campaign.id, "status": "running"},
         {"$set": {"status": "reviewing", "updatedAt": now}, "$inc": {"version": 1}},
+        None, "campaign.reviewing", {"to": "reviewing"},
     )
-    if result.modified_count:
+    if result is not None:
         campaign.reload()
         return True
     return False
@@ -203,7 +201,7 @@ def create_review_pairs(campaign):
                         continue
                     submission_a, submission_b = (first, second) if str(first.id) == first_id else (second, first)
                     try:
-                        ReviewAssignment(
+                        assignment = ReviewAssignment(
                             campaign_id=campaign.id,
                             pair_key=pair_key,
                             case_id=case_id,
@@ -212,7 +210,8 @@ def create_review_pairs(campaign):
                             slot=slot,
                             rubric_version=revision.rubric_version,
                             revision_id=revision.id,
-                        ).save()
+                        )
+                        audit.create(assignment, None, "review.created", {"campaignId": str(campaign.id)})
                         created += 1
                     except NotUniqueError:
                         continue
@@ -222,12 +221,10 @@ def create_review_pairs(campaign):
 def list_campaigns(user, limit=None, cursor=None):
     # Bounded pagination: default 50, max 100, cursor based on updated_at
     try:
-        lim = min(int(limit), 100) if limit is not None else 50
+        lim = max(1, min(int(limit), 100)) if limit is not None else 50
     except Exception:
         lim = 50
-    rows = repository.list_campaigns(limit=lim, cursor=cursor)
-    if user.role == "owner":
-        rows = [row for row in rows if str(row.owner_id) == str(user.id)]
+    rows = repository.list_campaigns(limit=lim, cursor=cursor, owner_id=user.id if user.role == "owner" else None)
     items = [public_campaign(row) for row in rows]
     # Provide cursor pagination when client requests it (limit/cursor present)
     if limit is not None or cursor is not None:
@@ -253,9 +250,9 @@ def create_campaign(user, payload):
         version=1,
         suite_version=1,
         rubric_version=1,
-    ).save()
+    )
+    audit.create(campaign, user, "campaign.created", {"name": name, "ownerId": str(user.id)})
     save_revision(campaign)
-    record(user, "campaign.created", "campaign", campaign.id, {"name": campaign.name, "ownerId": str(user.id)})
     _invalidate_analytics_cache()
     return public_campaign(campaign)
 
@@ -280,16 +277,15 @@ def update_campaign(user, campaign_id, payload):
         if updated_rubric != campaign.rubric:
             updates["rubric"] = updated_rubric
             updates["rubricVersion"] = campaign.rubric_version + 1
-    result = Campaign._get_collection().find_one_and_update(
+    result = audit.update(Campaign,
         {"_id": campaign.id, "status": "draft", "version": campaign.version},
         {"$set": updates, "$inc": {"version": 1}},
-        return_document=ReturnDocument.AFTER,
+        user, "campaign.updated", {"version": campaign.version + 1},
     )
     if result is None:
         raise AppError(409, "CAMPAIGN_CHANGED", "The draft changed while you were editing it. Refresh and try again.")
     campaign.reload()
     save_revision(campaign)
-    record(user, "campaign.updated", "campaign", campaign.id, {"version": campaign.version})
     _invalidate_analytics_cache()
     return public_campaign(campaign)
 
@@ -308,9 +304,9 @@ def create_campaign_version(user, campaign_id):
         rubric_version=source_revision.rubric_version,
         test_cases=list(source_revision.test_cases),
         rubric=list(source_revision.rubric),
-    ).save()
+    )
+    audit.create(campaign, user, "campaign.version_created", {"sourceCampaignId": str(source.id), "sourceRevisionId": str(source_revision.id)})
     revision = save_revision(campaign)
-    record(user, "campaign.version_created", "campaign", campaign.id, {"sourceCampaignId": str(source.id), "sourceRevisionId": str(source_revision.id), "revisionId": str(revision.id)})
     _invalidate_analytics_cache()
     return public_campaign(campaign)
 
@@ -322,10 +318,11 @@ def delete_campaign(user, campaign_id):
         raise AppError(409, "CAMPAIGN_NOT_DELETABLE", "Only draft campaigns can be deleted. Archive a published campaign instead.")
     if Submission.objects(campaign_id=campaign.id).count() or ReviewAssignment.objects(campaign_id=campaign.id).count():
         raise AppError(409, "CAMPAIGN_HAS_ACTIVITY", "Campaigns with response or review history cannot be deleted.")
-    result = Campaign._get_collection().delete_one({"_id": campaign.id, "status": "draft", "version": campaign.version})
-    if result.deleted_count != 1:
+    result = audit.update(Campaign, {"_id": campaign.id, "status": "draft", "deleted": {"$ne": True}, "version": campaign.version},
+                          {"$set": {"deleted": True}, "$inc": {"version": 1}}, user,
+                          "campaign.deleted", {"name": campaign.name, "ownerId": str(user.id)})
+    if result is None:
         raise AppError(409, "CAMPAIGN_CHANGED", "The draft changed while you were deleting it. Refresh and try again.")
-    record(user, "campaign.deleted", "campaign", campaign.id, {"name": campaign.name, "ownerId": str(user.id)})
     _invalidate_analytics_cache()
 
 
@@ -358,15 +355,14 @@ def transition_campaign(user, campaign_id, target):
         if pending or open_cases:
             raise AppError(409, "REVIEWS_REMAIN", "Complete all reviews and resolve open disagreements before closing this campaign.")
     before = campaign.status
-    updated = Campaign._get_collection().find_one_and_update(
+    updated = audit.update(Campaign,
         {"_id": campaign.id, "status": before, "version": campaign.version},
         {"$set": {"status": target, "version": campaign.version + 1, "updatedAt": datetime.now(timezone.utc)}},
-        return_document=ReturnDocument.AFTER,
+        user, "campaign.status_changed", {"from": before, "to": target},
     )
     if updated is None:
         raise AppError(409, "CAMPAIGN_CHANGED", "The campaign changed while this transition was being applied. Refresh and try again.")
     campaign.reload()
-    record(user, "campaign.status_changed", "campaign", campaign.id, {"from": before, "to": target})
     _invalidate_analytics_cache()
     return public_campaign(campaign)
 
@@ -375,7 +371,7 @@ def list_submissions(user, campaign_id, limit=None, cursor=None):
     campaign = ensure_campaign(campaign_id)
     ensure_owner(user, campaign)
     try:
-        lim = min(int(limit), 100) if limit is not None else 50
+        lim = max(1, min(int(limit), 100)) if limit is not None else 50
     except Exception:
         lim = 50
     rows = repository.list_submissions(campaign.id, limit=lim, cursor=cursor)
@@ -440,7 +436,7 @@ def ingest_submissions(user, campaign_id, items):
             revision_id=revision.id,
         )
         try:
-            item.save()
+            audit.create(item, user, "submission.queued", {"campaignId": str(campaign.id), "caseId": item.case_id})
         except NotUniqueError:
             existing = Submission.objects(campaign_id=campaign.id, idempotency_key=row["idempotencyKey"]).first()
             if not existing or existing.case_id != row["caseId"] or existing.model_name != row["modelName"] or existing.output != row["output"]:
@@ -450,7 +446,6 @@ def ingest_submissions(user, campaign_id, items):
             continue
         outcomes.append({"submission": public_submission(item), "duplicate": False})
     ProcessingJob(campaign_id=campaign.id, available_at=datetime.now(timezone.utc)).save()
-    record(user, "submissions.queued", "campaign", campaign.id, {"count": sum(not row["duplicate"] for row in outcomes)})
     _invalidate_analytics_cache()
     return outcomes
 
@@ -464,17 +459,16 @@ def process_submissions(user, campaign_id, limit=25):
     now = datetime.now(timezone.utc)
     stale_before = now.timestamp() - 300
     stale_moment = datetime.fromtimestamp(stale_before, timezone.utc)
-    Submission._get_collection().update_many(
-        {"campaignId": campaign.id, "status": "processing", "updatedAt": {"$lt": stale_moment}},
-        {"$set": {"status": "queued", "updatedAt": now}},
-    )
+    for stale in Submission.objects(campaign_id=campaign.id, status="processing", updated_at__lt=stale_moment):
+        audit.update(Submission, {"_id": stale.id, "status": "processing", "updatedAt": {"$lt": stale_moment}},
+                     {"$set": {"status": "queued"}}, user, "submission.recovered", {"campaignId": str(campaign.id)})
     candidates = list(Submission.objects(campaign_id=campaign.id, status="queued").order_by("created_at").limit(limit))
     processed = 0
     for candidate in candidates:
-        claimed = Submission._get_collection().find_one_and_update(
+        claimed = audit.update(Submission,
             {"_id": candidate.id, "status": "queued"},
             {"$set": {"status": "processing", "updatedAt": now}, "$inc": {"attempt": 1}},
-            return_document=ReturnDocument.AFTER,
+            user, "submission.processing", {"campaignId": str(campaign.id)},
         )
         if claimed is None:
             continue
@@ -482,16 +476,16 @@ def process_submissions(user, campaign_id, limit=25):
         should_fail = claimed.get("forceFailure", False) and attempt == 1
         final_status = "failed" if should_fail else "ready"
         failure_reason = "The response payload failed the first processing attempt; retry is available." if should_fail else ""
-        Submission._get_collection().update_one(
-            {"_id": candidate.id, "status": "processing"},
+        audit.update(Submission,
+            {"_id": candidate.id, "status": "processing", "attempt": attempt},
             {"$set": {"status": final_status, "failureReason": failure_reason, "updatedAt": datetime.now(timezone.utc)}},
+            user, "submission.processed", {"campaignId": str(campaign.id), "status": final_status},
         )
         processed += 1
     created_reviews = create_review_pairs(campaign)
     ready_count = Submission.objects(campaign_id=campaign.id, status="ready").count()
-    if created_reviews and mark_reviewing(campaign):
-        record(user, "reviews.generated", "campaign", campaign.id, {"assignments": created_reviews})
-    record(user, "submissions.processed", "campaign", campaign.id, {"processed": processed, "reviewAssignments": created_reviews})
+    if created_reviews and not Submission.objects(campaign_id=campaign.id, status__in=("queued", "processing", "failed")).count():
+        mark_reviewing(campaign)
     _invalidate_analytics_cache()
     return {
         "processed": processed,
@@ -514,10 +508,13 @@ def retry_submission(user, campaign_id, submission_id):
         raise AppError(409, "CAMPAIGN_NOT_RUNNING", "Failed responses can be retried only while the campaign is running.")
     if submission.attempt >= 3:
         raise AppError(409, "RETRY_LIMIT_REACHED", "This response has reached the three-attempt retry limit.")
-    submission.status = "queued"
-    submission.failure_reason = ""
-    submission.save()
-    record(user, "submission.retry_queued", "submission", submission.id, {"attempt": submission.attempt + 1})
+    updated = audit.update(Submission, {"_id": submission.id, "status": "failed", "attempt": submission.attempt},
+                           {"$set": {"status": "queued", "failureReason": ""}}, user,
+                           "submission.retry_queued", {"attempt": submission.attempt + 1, "campaignId": str(campaign.id)})
+    if updated is None:
+        raise AppError(409, "SUBMISSION_CHANGED", "This response has already been retried.")
+    ProcessingJob(campaign_id=campaign.id, available_at=datetime.now(timezone.utc)).save()
+    submission.reload()
     _invalidate_analytics_cache()
     return public_submission(submission)
 
@@ -569,13 +566,11 @@ def list_reviews(user, campaign_id=None, status=None, limit=None, cursor=None):
     if status and status not in ("available", "claimed", "completed"):
         raise AppError(400, "INVALID_REVIEW_STATUS", "Select a valid review status.")
     try:
-        lim = min(int(limit), 100) if limit is not None else 50
+        lim = max(1, min(int(limit), 100)) if limit is not None else 50
     except Exception:
         lim = 50
-    rows = repository.list_reviews(campaign_id, limit=lim, cursor=cursor, status=status)
-    # Post-filter for reviewer visibility (owner sees only own claims)
-    if user.role == "reviewer":
-        rows = [row for row in rows if row.status == "available" or str(row.reviewer_id) == str(user.id)]
+    rows = repository.list_reviews(campaign_id, limit=lim, cursor=cursor, status=status,
+                                   reviewer_id=user.id if user.role == "reviewer" else None)
     items = [public_review(row, user) for row in rows]
     if limit is not None or cursor is not None:
         next_cursor = str(rows[-1].id) if len(rows) == lim else None
@@ -583,31 +578,70 @@ def list_reviews(user, campaign_id=None, status=None, limit=None, cursor=None):
     return items
 
 
-def claim_review(user, review_id):
-    review = repository.find_review(review_id)
-    if review is None:
-        raise AppError(404, "REVIEW_NOT_FOUND", "That review assignment could not be found.")
-    if review.status != "available":
-        raise AppError(409, "REVIEW_ALREADY_CLAIMED", "Another reviewer has already claimed this comparison.")
-    campaign = ensure_campaign(str(review.campaign_id))
+def independence_group(user):
+    # Groups are administrator-maintained; account id is always the default.
+    return "group:" + user.independence_group.strip().casefold() if user.independence_group.strip() else "user:" + str(user.id)
+
+
+def ensure_independent_reviewer(user, campaign, review):
+    if user.role not in REVIEW_ROLES:
+        raise AppError(403, "ROLE_FORBIDDEN", "Only reviewers and administrators can review.")
+    if campaign.status not in ("running", "reviewing"):
+        raise AppError(409, "CAMPAIGN_CLOSED", "This campaign is not accepting reviews.")
+    owner = repository.find_user(campaign.owner_id)
+    if str(campaign.owner_id) == str(user.id) or (owner and independence_group(owner) == independence_group(user)):
+        raise AppError(409, "REVIEW_CONFLICT", "Campaign owners and their independence group cannot review their own campaign.")
     if review.campaign_id in (user.conflict_campaign_ids or []):
         raise AppError(409, "REVIEW_CONFLICT", "You are excluded from reviewing this campaign.")
     conflict_models = {name.casefold() for name in (user.conflict_model_names or [])}
     submissions = [repository.find_submission(str(review.submission_a_id)), repository.find_submission(str(review.submission_b_id))]
     if any(item and item.model_name.casefold() in conflict_models for item in submissions):
         raise AppError(409, "REVIEW_CONFLICT", "You are excluded from reviewing a response from a conflicted model.")
-    if ReviewAssignment.objects(campaign_id=review.campaign_id, pair_key=review.pair_key, reviewer_id=user.id, status__in=("claimed", "completed")).first():
-        raise AppError(409, "REVIEW_CONFLICT", "A reviewer cannot review both slots of the same comparison.")
+    others = ReviewAssignment.objects(campaign_id=review.campaign_id, pair_key=review.pair_key,
+                                     id__ne=review.id, status__in=("claimed", "completed"))
+    for other in others:
+        peer = repository.find_user(other.reviewer_id)
+        if (str(other.reviewer_id) == str(user.id) or other.reviewer_group == independence_group(user)
+                or (peer and independence_group(peer) == independence_group(user))):
+            raise AppError(409, "REVIEW_CONFLICT", "This identity or independence group already reviewed this comparison.")
+    if review.status == "claimed" and review.reviewer_group != independence_group(user):
+        raise AppError(409, "REVIEW_CONFLICT", "Your independence group changed. Release this assignment and claim it again.")
+
+
+
+def claim_review(user, review_id):
+    if user.role not in REVIEW_ROLES:
+        raise AppError(403, "ROLE_FORBIDDEN", "Only reviewers and administrators can claim reviews.")
+    review = repository.find_review(review_id)
+    if review is None:
+        raise AppError(404, "REVIEW_NOT_FOUND", "That review assignment could not be found.")
+    if review.status != "available":
+        raise AppError(409, "REVIEW_ALREADY_CLAIMED", "Another reviewer has already claimed this comparison.")
+    campaign = ensure_campaign(str(review.campaign_id))
+    ensure_independent_reviewer(user, campaign, review)
+    group = independence_group(user)
+    # Freeze the verified identity on first claim. The operator command uses
+    # the inverse CAS, so configuration cannot race a claim with an old group.
+    identity_query = {"independence_group": user.independence_group} if user.independence_group else {"independence_group__in": ["", None]}
+    identity = GavelUser.objects(id=user.id, active=True, **identity_query).modify(
+        set__review_identity_locked=True, new=True)
+    if identity is None:
+        raise AppError(409, "IDENTITY_CHANGED", "Your review identity changed. Sign in again.")
+    if ReviewAssignment.objects(campaign_id=review.campaign_id, pair_key=review.pair_key,
+                                reviewer_group=group, status__in=("claimed", "completed")).first():
+        raise AppError(409, "REVIEW_CONFLICT", "This identity or independence group already reviewed this comparison.")
     now = datetime.now(timezone.utc)
-    updated = ReviewAssignment._get_collection().find_one_and_update(
-        {"_id": review.id, "status": "available"},
-        {"$set": {"status": "claimed", "reviewerId": user.id, "claimedAt": now}},
-        return_document=ReturnDocument.AFTER,
-    )
+    try:
+        updated = audit.update(ReviewAssignment,
+            {"_id": review.id, "status": "available"},
+            {"$set": {"status": "claimed", "reviewerId": user.id, "reviewerGroup": group, "reviewerKey": str(user.id), "claimedAt": now}},
+            user, "review.claimed", {"campaignId": str(review.campaign_id)},
+        )
+    except DuplicateKeyError:
+        raise AppError(409, "REVIEW_CONFLICT", "This identity or independence group already claimed the other slot.")
     if updated is None:
         raise AppError(409, "REVIEW_ALREADY_CLAIMED", "Another reviewer has already claimed this comparison.")
     review.reload()
-    record(user, "review.claimed", "review", review.id, {"campaignId": str(review.campaign_id)})
     _invalidate_analytics_cache()
     return public_review(review, user)
 
@@ -619,15 +653,14 @@ def release_review(user, review_id):
     if review.status != "claimed" or str(review.reviewer_id) != str(user.id):
         raise AppError(409, "REVIEW_NOT_OWNED", "Only the reviewer who claimed this assignment can release it.")
     now = datetime.now(timezone.utc)
-    updated = ReviewAssignment._get_collection().find_one_and_update(
+    updated = audit.update(ReviewAssignment,
         {"_id": review.id, "status": "claimed", "reviewerId": user.id},
-        {"$set": {"status": "available", "reviewerId": None, "claimedAt": None, "updatedAt": now}},
-        return_document=ReturnDocument.AFTER,
+        {"$set": {"status": "available", "reviewerId": None, "claimedAt": None, "updatedAt": now}, "$unset": {"reviewerGroup": "", "reviewerKey": ""}},
+        user, "review.released", {"campaignId": str(review.campaign_id)},
     )
     if updated is None:
         raise AppError(409, "REVIEW_ALREADY_SUBMITTED", "This assignment has already been submitted or released.")
     review.reload()
-    record(user, "review.released", "review", review.id, {"campaignId": str(review.campaign_id)})
     _invalidate_analytics_cache()
     return public_review(review, user)
 
@@ -638,6 +671,7 @@ def submit_review(user, review_id, payload):
         raise AppError(404, "REVIEW_NOT_FOUND", "That review assignment could not be found.")
     if review.status != "claimed" or str(review.reviewer_id) != str(user.id):
         raise AppError(409, "REVIEW_NOT_OWNED", "Claim this assignment before submitting a review.")
+    ensure_independent_reviewer(user, ensure_campaign(str(review.campaign_id)), review)
     choice = payload.get("choice")
     if choice not in ("a", "b"):
         raise AppError(400, "INVALID_CHOICE", "Choose Response A or Response B.")
@@ -667,18 +701,18 @@ def submit_review(user, review_id, payload):
     first_id = review.submission_a_id if left_first else review.submission_b_id
     second_id = review.submission_b_id if left_first else review.submission_a_id
     completed_at = datetime.now(timezone.utc)
-    updated = ReviewAssignment._get_collection().find_one_and_update(
+    updated = audit.update(ReviewAssignment,
         {"_id": review.id, "status": "claimed", "reviewerId": user.id},
         {"$set": {"winnerId": first_id if choice == "a" else second_id, "notes": notes.strip(), "criterionScores": criterion_scores, "weightedScore": {key: round(value, 2) for key, value in weighted_score.items()}, "status": "completed", "completedAt": completed_at, "updatedAt": completed_at}},
-        return_document=ReturnDocument.AFTER,
+        user, "review.completed", {"campaignId": str(review.campaign_id)},
     )
     if updated is None:
         raise AppError(409, "REVIEW_ALREADY_SUBMITTED", "This assignment has already been submitted or released.")
     review.reload()
     adjudication = detect_disagreement(review)
     campaign = ensure_campaign(str(review.campaign_id))
-    mark_reviewing(campaign)
-    record(user, "review.completed", "review", review.id, {"caseId": review.case_id, "disagreementDetected": bool(adjudication), "campaignId": str(review.campaign_id)})
+    if not Submission.objects(campaign_id=campaign.id, status__in=("queued", "processing", "failed")).count():
+        mark_reviewing(campaign)
     _invalidate_analytics_cache()
     return {"review": public_review(review, user), "disagreementDetected": bool(adjudication)}
 
@@ -700,12 +734,9 @@ def detect_disagreement(review):
         status="open",
     )
     try:
-        adjudication.save()
+        audit.create(adjudication, repository.find_user(str(review.reviewer_id)), "disagreement.detected", {"caseId": review.case_id, "campaignId": str(review.campaign_id)})
     except NotUniqueError:
         return Adjudication.objects(campaign_id=review.campaign_id, pair_key=review.pair_key).first()
-    record_user = repository.find_user(str(review.reviewer_id))
-    if record_user:
-        record(record_user, "disagreement.detected", "adjudication", adjudication.id, {"caseId": review.case_id, "campaignId": str(review.campaign_id)})
     return adjudication
 
 
@@ -717,12 +748,11 @@ def list_adjudications(user, campaign_id=None, limit=None, cursor=None):
         if user.role == "owner":
             ensure_owner(user, campaign)
     try:
-        lim = min(int(limit), 100) if limit is not None else 50
+        lim = max(1, min(int(limit), 100)) if limit is not None else 50
     except Exception:
         lim = 50
-    rows = repository.list_adjudications(campaign_id, limit=lim, cursor=cursor)
-    if user.role == "owner":
-        rows = [row for row in rows if (campaign := repository.find_campaign(str(row.campaign_id))) and str(campaign.owner_id) == str(user.id)]
+    owned_ids = list(Campaign.objects(owner_id=user.id, deleted__ne=True).scalar("id")) if user.role == "owner" else None
+    rows = repository.list_adjudications(campaign_id, limit=lim, cursor=cursor, campaign_ids=owned_ids)
     items = [public_adjudication(row) for row in rows]
     if limit is not None or cursor is not None:
         next_cursor = str(rows[-1].id) if len(rows) == lim else None
@@ -767,15 +797,14 @@ def resolve_adjudication(user, adjudication_id, payload):
     left_id = item.submission_a_id if left_first else item.submission_b_id
     right_id = item.submission_b_id if left_first else item.submission_a_id
     resolved_at = datetime.now(timezone.utc)
-    updated = Adjudication._get_collection().find_one_and_update(
+    updated = audit.update(Adjudication,
         {"_id": item.id, "status": "open"},
         {"$set": {"decisionId": left_id if choice == "a" else right_id, "rationale": rationale.strip(), "adjudicatorId": user.id, "status": "resolved", "resolvedAt": resolved_at, "updatedAt": resolved_at}},
-        return_document=ReturnDocument.AFTER,
+        user, "adjudication.resolved", {"campaignId": str(item.campaign_id), "decision": choice, "rationale": rationale.strip()},
     )
     if updated is None:
         raise AppError(409, "ADJUDICATION_RESOLVED", "Another adjudicator has already recorded a decision.")
     item.reload()
-    record(user, "adjudication.resolved", "adjudication", item.id, {"caseId": item.case_id, "decision": choice, "rationale": item.rationale, "campaignId": str(item.campaign_id)})
     _invalidate_analytics_cache()
     return public_adjudication(item)
 
@@ -790,7 +819,7 @@ def analytics(user, campaign_id=None):
     _now = time.time()
     if _key in _analytics_cache and _now - _analytics_cache_exp.get(_key, 0) < _ANALYTICS_TTL:
         return _analytics_cache[_key]
-    campaigns = repository.list_campaigns()
+    campaigns = list(Campaign.objects(deleted__ne=True))
     if campaign_id:
         selected = ensure_campaign(campaign_id)
         if user.role == "owner":
@@ -878,8 +907,8 @@ def publish_results(user, campaign_id):
         snapshot=analytics(user, str(campaign.id)),
         published_by=user.id,
         published_at=datetime.now(timezone.utc),
-    ).save()
-    record(user, "results.published", "publication", publication.id, {"campaignId": str(campaign.id), "version": version, "revisionId": str(revision.id)})
+    )
+    audit.create(publication, user, "results.published", {"campaignId": str(campaign.id), "version": version})
     _invalidate_analytics_cache()
     return public_publication(publication)
 
@@ -912,19 +941,13 @@ def audit_log(user, cursor=None, limit=60):
     if user.role not in ("administrator", "owner", "adjudicator"):
         raise AppError(403, "ROLE_FORBIDDEN", "Your role cannot access the audit history.")
     try:
-        lim = min(int(limit), 100) if limit is not None else 60
+        lim = max(1, min(int(limit), 100)) if limit is not None else 60
     except Exception:
         lim = 60
-    rows = repository.list_audit(limit=lim, cursor=cursor)
-    if user.role == "owner":
-        owned_ids = {str(row.id) for row in Campaign.objects(owner_id=user.id)}
-        rows = [
-            row
-            for row in rows
-            if str(row.details.get("ownerId", "")) == str(user.id)
-            or str(row.details.get("campaignId", "")) in owned_ids
-            or (row.entity_type == "campaign" and row.entity_id in owned_ids)
-        ]
+    # Include deleted campaigns so their owners retain the full audit trail.
+    owned_ids = list(Campaign.objects(owner_id=user.id).scalar("id")) if user.role == "owner" else None
+    rows = repository.list_audit(limit=lim, cursor=cursor, owner_id=user.id if user.role == "owner" else None,
+                                 campaign_ids=owned_ids)
     return {
         "items": [
             {

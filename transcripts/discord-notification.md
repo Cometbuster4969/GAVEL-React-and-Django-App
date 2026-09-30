@@ -1,38 +1,45 @@
-# Discord notification (draft — posting blocked for an agent)
+# Gavel submission/status message template
 
-The assignment asks for a Discord post at submission time. An agent cannot post it:
-no Discord bot token or webhook URL exists in this environment, and credentials must
-never be committed. Post the message below from the submission Discord account
-(the same identity that owns the repository), then tick the step in `SECURITY.md`.
+Updated **2026-09-30**. The user reports submission/access logistics are handled;
+this is a reusable message, **not** an instruction to post again or evidence
+that a new post was made. Original idea approval must already have been obtained
+through the required channel; this status message does not substitute for it.
 
-## Ready-to-post message
+## Message
 
-> **Gavel — AI evaluation operations platform (Build Your Own Full-Stack Application)**
+> **Gavel — AI evaluation operations platform**
 >
 > Repository: https://github.com/Cometbuster4969/GAVEL-React-and-Django-App (private)
-> Stack: React 19 + Vite 8 · Django 5.1 + DRF · MongoDB via MongoEngine · Bun workspace
+> Stack: React 19.2.4 + Vite 8.2.2 · Django 5.1.5 + DRF 3.15.2 · MongoDB/MongoEngine
 >
-> Gavel turns model-response testing into an auditable release signal: versioned test
-> suites and weighted rubrics, idempotent response ingestion with a durable processing
-> queue, blind pairwise reviews with per-reviewer deterministic ordering, automatic
-> disagreement detection with required adjudication rationale, versioned result
-> publication with JSON/CSV export, and an append-only audit history backed by a
-> durable outbox with retry/dead-letter semantics.
+> Gavel provides versioned evaluation campaigns and weighted rubrics, idempotent
+> response ingestion and queued processing, blind pairwise reviews, identity-group
+> separation, disagreement adjudication, versioned results with JSON/CSV export,
+> analytics, and an audit trail backed by atomic embedded intents and a durable
+> outbox. Roles: administrator, campaign owner, reviewer, and adjudicator.
 >
-> Verification: `manage.py check` clean, 13 backend tests, Vite production build,
-> `prettier --check`, live API E2E (`node e2e/gavel.spec.js`), standalone worker pass,
-> and an automated `axe-core` + headless-Chromium accessibility audit with **0
-> violations** across 10 rendered surfaces (evidence in `transcripts/`).
+> Latest hardening verification (September 30): 35 backend tests passed using
+> MongoMock; the full Django HTTP lifecycle passed, including mandatory second
+> review, disagreement resolution, result publication, audit pagination, and
+> archive. Frontend production build, undefined-symbol checks, Django checks,
+> Python compilation, and management-command discovery passed.
 >
-> Roles: administrator, campaign owner, reviewer, adjudicator.
-> Demo password for all seeded accounts: `gavel2026!`
+> Scope of evidence: real MongoDB crash/multi-process behavior and the browser
+> test were not verified in this sandbox. The September 29 automated accessibility
+> report is historical, not a post-refactor rerun.
+>
+> Current documentation: README.md.
+> Historical reports and available AI interaction exports are under transcripts/;
+> export provenance and completeness limitations are disclosed there.
 
-## Exact steps to post
+## Before using this as a final submission notification
 
-1. Open the Discord client or web app with the submission account.
-2. Choose the assignment channel (use the channel where the HackerRank submission
-   instructions were posted).
-3. Paste the message above and post it.
-4. Reply in the same channel with the repository link and the merge dates:
-   PR #1 `2026-09-28T21:00:39Z`, PR #2 `2026-09-28T23:13:59Z`, PR #3 `2026-09-29T04:57:20Z`.
-5. Record the post link in `SECURITY.md` if the submission form asks for it.
+- Run the supplied validation skill on the final revision and complete the
+  transcript export. Do not describe the work as fully validated while any
+  checks remain unverified.
+- Ensure the private remote includes the revision being described. The current
+  Arena branch is `arena/01a0eff9-gavel-react-and-django-app`; do not switch or push
+  to another branch from this session.
+- Keep the repository private. If external actions are already completed, retain
+  their confirmation privately rather than repeat invitations or notifications.
+  Do not include credentials or access tokens in a message.
