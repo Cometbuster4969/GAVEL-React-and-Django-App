@@ -136,7 +136,7 @@ The database is deterministically populated by `backend/scripts/seed.py` (invoke
 
 ## Environment variables
 
-Committed example files `.env.example`, `backend/.env.example`, and `frontend/.env.example` specify defaults:
+Committed example files `backend/.env.example` and `frontend/.env.example` specify defaults:
 
 | Variable | Default | Purpose |
 |---|---|---|
@@ -144,9 +144,9 @@ Committed example files `.env.example`, `backend/.env.example`, and `frontend/.e
 | `MONGODB_URI` | `mongodb://127.0.0.1:27017/gavel_db` | Connection string for MongoDB. |
 | `DJANGO_SECRET_KEY` | Development key | Django security secret. |
 | `JWT_SECRET` | Development key | Secret key for signing session tokens. |
-| `CORS_ALLOWED_ORIGINS` | `http://localhost:3000,http://127.0.0.1:3000` | Allowed frontend origins. |
+| `CORS_ALLOWED_ORIGINS` | `http://localhost:3000,http://127.0.0.1:3000` | Allowed frontend origins in production; development allows all origins. |
 | `TRUSTED_PROXY_CIDRS` | `""` | Comma-separated CIDRs trusted to supply `X-Forwarded-For`. |
-| `VITE_API_URL` | `http://localhost:8000` | Backend API URL for frontend client. |
+| `VITE_API_URL` | `/api/v1` | Frontend API base path; Vite proxies `/api` to the backend on port 8000 during development. |
 
 ## Demo accounts
 
