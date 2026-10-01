@@ -65,10 +65,12 @@ MIDDLEWARE = [
 ]
 # CORS: allow all only in development; restrict to known origins in production
 CORS_ALLOW_ALL_ORIGINS = DEBUG
-CORS_ALLOWED_ORIGINS = [
-    "http://localhost:3000",
-    "http://127.0.0.1:3000",
-] if not DEBUG else []
+_cors_env = os.getenv("CORS_ALLOWED_ORIGINS", "").strip()
+CORS_ALLOWED_ORIGINS = [] if DEBUG else [
+    origin.strip()
+    for origin in (_cors_env or "http://localhost:3000,http://127.0.0.1:3000").split(",")
+    if origin.strip()
+]
 CORS_ALLOW_CREDENTIALS = not DEBUG  # Only send credentials over HTTPS/restricted origins
 ROOT_URLCONF = "calendar_backend.urls"
 DATABASES = {}
