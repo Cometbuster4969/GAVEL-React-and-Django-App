@@ -1,69 +1,21 @@
-"""Regression checks for audit atomicity, cursors, identity, and HTTP security.
-
-Run using scripts/test-backend.py: never point these tests at a live database.
-"""
-import unittest
+"""Regression checks for audit atomicity, cursors, identity, and HTTP security."""
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 from unittest import mock
-from uuid import uuid4
-
-import django
-
-django.setup()
-
 from django.http import JsonResponse
 from django.test import RequestFactory, override_settings
 from mongoengine.connection import get_db
 from pymongo.errors import DuplicateKeyError
 
 from apps.gavel import audit, auth, repository, services
-from apps.gavel.models import AuditEvent, AuditOutbox, Campaign, GavelUser, ReviewAssignment, Submission, Adjudication
+from apps.gavel.models import Adjudication, AuditEvent, AuditOutbox, Campaign, GavelUser, ReviewAssignment, Submission
 from apps.shared.errors import AppError
 from calendar_backend.security_middleware import RateLimitMiddleware
 
+from .support import IsolatedTestCase
 
-class HardeningTests(unittest.TestCase):
-    def setUp(self):
-        self.owner = repository.find_user_by_email("maya.chen@gavel.test")
-        self.reviewer = repository.find_user_by_email("jordan.lee@gavel.test")
-        self.peer = repository.find_user_by_email("sam.rivera@gavel.test")
-        self.admin = repository.find_user_by_email("elena.park@gavel.test")
-        self.campaigns = []
-        self.users = []
 
-    def tearDown(self):
-        for user in self.users:
-            GavelUser.objects(id=user.id).delete()
-        for campaign_id in self.campaigns:
-            for model in (Campaign, Submission, ReviewAssignment, Adjudication):
-                (model.objects(id=campaign_id) if model is Campaign else model.objects(campaign_id=campaign_id)).delete()
-
-    def user(self, role="owner", group=""):
-        user = GavelUser(name="Test User", email=f"{uuid4().hex}@test.invalid", role=role,
-                         independence_group=group, password_hash=self.owner.password_hash).save()
-        self.users.append(user)
-        return user
-
-    def campaign(self, owner=None, running=False):
-        data = services.create_campaign(owner or self.owner, {
-            "name": "Hardening " + uuid4().hex[:8], "summary": "Regression fixture",
-            "testCases": [{"id": "case", "title": "Case", "prompt": "Please evaluate this."}],
-            "rubric": [{"id": "quality", "title": "Quality", "weight": 100}]})
-        self.campaigns.append(repository.valid_id(data["id"]))
-        if running:
-            services.transition_campaign(owner or self.owner, data["id"], "published")
-            services.transition_campaign(owner or self.owner, data["id"], "running")
-        return repository.find_campaign(data["id"])
-
-    def pair(self, owner=None):
-        campaign = self.campaign(owner, running=True)
-        services.ingest_submissions(owner or self.owner, str(campaign.id), [
-            {"caseId": "case", "modelName": "A", "output": "First output", "idempotencyKey": "one"},
-            {"caseId": "case", "modelName": "B", "output": "Second output", "idempotencyKey": "two"}])
-        services.process_submissions(owner or self.owner, str(campaign.id))
-        return campaign, list(ReviewAssignment.objects(campaign_id=campaign.id))
-
+class HardeningTests(IsolatedTestCase):
     def test_failed_relay_keeps_change_and_intent_together_then_worker_recovers(self):
         campaign = self.campaign()
         with mock.patch.object(repository, "persist_audit_intent", side_effect=RuntimeError("outbox down")):
@@ -230,8 +182,6 @@ class HardeningTests(unittest.TestCase):
         campaign = self.campaign(running=True)
         services.ingest_submissions(self.owner, str(campaign.id), [
             {"caseId": "case", "modelName": str(i), "output": "out", "idempotencyKey": str(i)} for i in range(3)])
-        # Isolate this worker test from the demo campaign's pending job.
-        ProcessingJob.objects(campaign_id__ne=campaign.id).delete()
         for _ in range(3):
             self.assertEqual(process_next_job(limit=1), 1)
         self.assertEqual(Submission.objects(campaign_id=campaign.id, status="ready").count(), 3)
@@ -255,7 +205,6 @@ class HardeningTests(unittest.TestCase):
             with self.assertRaises(AppError) as error:
                 services.claim_review(user, str(pair[1].id))
             self.assertEqual(error.exception.code, "REVIEW_CONFLICT")
-        # Database also rejects the conflict if simultaneous preflight checks pass.
         with self.assertRaises(DuplicateKeyError):
             ReviewAssignment._get_collection().update_one({"_id": pair[1].id}, {"$set": {
                 "status": "claimed", "reviewerGroup": services.independence_group(first), "reviewerKey": str(alias.id)}})
@@ -288,8 +237,9 @@ class HardeningTests(unittest.TestCase):
         self.assertEqual(error.exception.code, "REVIEW_CONFLICT")
 
 
-class RateLimitTests(unittest.TestCase):
+class RateLimitTests(IsolatedTestCase):
     def setUp(self):
+        super().setUp()
         get_db()["ratelimitcounters"].delete_many({})
         self.factory = RequestFactory()
 

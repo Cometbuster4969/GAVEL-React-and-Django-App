@@ -40,16 +40,10 @@ check_mongo() {
         log_info "MongoDB is now reachable on ${MONGO_PORT}"
         return
     fi
-    # Fall back to mongomock in-memory Mongo for CI/sandbox where mongod is unavailable
-    if [ -f ".venv/bin/python" ] && .venv/bin/python -c "import mongomock" >/dev/null 2>&1; then
-        log_warn "MongoDB not available — will use mongomock in-memory Mongo (python mongomock) for this environment"
-        return
-    fi
-    if python3 -c "import mongomock" >/dev/null 2>&1; then
-        log_warn "MongoDB not available — mongomock found in system python, continuing with in-memory fallback"
-        return
-    fi
-    log_warn "MongoDB is not reachable and mongomock not found; backend will run degraded until MongoDB is available. Continuing setup."
+    log_error "MongoDB did not answer on ${MONGO_HOST}:${MONGO_PORT} within the startup check."
+    log_error "Gavel requires a running MongoDB 8+ instance. It will not fall back to an in-memory database."
+    log_error "Start mongod and re-run setup."
+    exit 1
 }
 
 setup_python() {
@@ -71,8 +65,6 @@ setup_python() {
         else
             .venv/bin/pip install -r backend/requirements.txt --quiet
         fi
-        # Ensure mongomock for in-memory fallback when mongod unavailable (install quietly, ignore failure)
-        .venv/bin/python -c "import mongomock" >/dev/null 2>&1 || .venv/bin/pip install mongomock --quiet 2>/dev/null || true
     elif command -v uv >/dev/null 2>&1; then
         uv pip install --system -r backend/requirements.txt --quiet 2>&1 || pip install -r backend/requirements.txt --quiet
     else

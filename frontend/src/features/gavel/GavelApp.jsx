@@ -3,17 +3,17 @@ import { gavelApi } from "./gavel.api.js";
 import { setToken } from "../../shared/api/client.js";
 import { Icon, GavelMark } from "./components/ui.jsx";
 import { AppShell } from "./components/AppShell.jsx";
-import { LoginScreen } from "./pages/LoginScreen.jsx";
-import { OverviewPage } from "./pages/OverviewPage.jsx";
-import { CampaignsPage } from "./pages/CampaignsPage.jsx";
-import { CampaignDetail } from "./pages/CampaignDetail.jsx";
-import { ReviewPage } from "./pages/ReviewPage.jsx";
-import { AdjudicationPage } from "./pages/AdjudicationPage.jsx";
-import { AnalyticsPage } from "./pages/AnalyticsPage.jsx";
-import { ActivityPage } from "./pages/ActivityPage.jsx";
-import { CampaignModal } from "./modals/CampaignModal.jsx";
-import { CampaignEditorModal } from "./modals/CampaignEditorModal.jsx";
-import { SubmissionModal } from "./modals/SubmissionModal.jsx";
+import { LoginScreen } from "./auth/LoginScreen.jsx";
+import { OverviewPage } from "./overview/OverviewPage.jsx";
+import { CampaignsPage } from "./campaigns/CampaignsPage.jsx";
+import { CampaignDetail } from "./campaigns/CampaignDetail.jsx";
+import { ReviewPage } from "./reviews/ReviewPage.jsx";
+import { AdjudicationPage } from "./adjudications/AdjudicationPage.jsx";
+import { AnalyticsPage } from "./analytics/AnalyticsPage.jsx";
+import { ActivityPage } from "./activity/ActivityPage.jsx";
+import { CampaignModal } from "./campaigns/CampaignModal.jsx";
+import { CampaignEditorModal } from "./campaigns/CampaignEditorModal.jsx";
+import { SubmissionModal } from "./campaigns/SubmissionModal.jsx";
 
 export default function App() {
 	const [user, setUser] = useState(null);
@@ -264,7 +264,6 @@ export default function App() {
 		}
 	};
 	const claimReview = async (review) => {
-		// ponytail: optimistic claim with rollback on 409 conflict
 		const prev = reviews;
 		setReviews((current) =>
 			current.map((r) => (r.id === review.id ? { ...r, status: "claimed", claimedByMe: true, claimedBy: "You" } : r)),
@@ -285,7 +284,6 @@ export default function App() {
 		}
 	};
 	const releaseReview = async (review) => {
-		// ponytail: optimistic release with rollback
 		const prev = reviews;
 		setReviews((current) =>
 			current.map((r) => (r.id === review.id ? { ...r, status: "available", claimedByMe: false, claimedBy: null } : r)),

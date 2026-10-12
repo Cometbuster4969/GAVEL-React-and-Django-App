@@ -1,17 +1,10 @@
-import os
-import unittest
-
-os.environ.setdefault("DJANGO_SETTINGS_MODULE", "calendar_backend.settings")
-
-import django
-
-django.setup()
-
 from apps.gavel.services import deterministic_side, validate_cases, validate_rubric
 from apps.shared.errors import AppError
 
+from .support import IsolatedTestCase
 
-class ServiceContractTests(unittest.TestCase):
+
+class ServiceContractTests(IsolatedTestCase):
     def test_rubric_requires_exact_total_when_publishing(self):
         rubric = [{"id": "accuracy", "title": "Accuracy", "weight": 100, "description": "Policy correctness."}]
         self.assertEqual(validate_rubric(rubric, require_total=True)[0]["weight"], 100)
@@ -31,7 +24,3 @@ class ServiceContractTests(unittest.TestCase):
         first = deterministic_side(type("Review", (), {"pair_key": "pair-1"})(), "reviewer-1")
         self.assertIn(first, ("a", "b"))
         self.assertEqual(first, deterministic_side(type("Review", (), {"pair_key": "pair-1"})(), "reviewer-1"))
-
-
-if __name__ == "__main__":
-    unittest.main()

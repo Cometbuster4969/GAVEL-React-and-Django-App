@@ -49,37 +49,51 @@ The product uses no external component library or hosted service. Dependencies s
 .
 ├── frontend/
 │   ├── src/App.jsx                   # React entry boundary
-│   ├── src/features/gavel/           # Workspace shell, pages, components, modals, and API client
-│   │   ├── components/               # Shared UI cards, metrics, and navigation
-│   │   ├── pages/                    # Role-specific workspaces (Campaigns, Reviews, Adjudications, Audit)
-│   │   ├── modals/                   # Creation and editing dialogs
-│   │   ├── constants.js              # Rubric templates, role definitions, and navigation tabs
-│   │   ├── format.js                 # Display formatters and helpers
+│   ├── src/features/gavel/           # Evaluation workspace, grouped by feature
+│   │   ├── GavelApp.jsx              # Signed-in shell and feature orchestration
+│   │   ├── auth/                     # Sign-in
+│   │   ├── overview/                 # Dashboard
+│   │   ├── campaigns/                # Campaign list, detail, and editors
+│   │   ├── reviews/                  # Blind pairwise review
+│   │   ├── adjudications/            # Disagreement resolution
+│   │   ├── analytics/                # Published results
+│   │   ├── activity/                 # Audit history
+│   │   ├── components/               # Shared UI and navigation shell
+│   │   ├── constants.js              # Role labels and navigation tabs
+│   │   ├── format.js                 # Display formatters
 │   │   └── gavel.api.js              # Frontend API client
 │   ├── src/shared/api/               # Authenticated JSON API client
 │   └── public/                       # Local favicon
 ├── backend/
 │   ├── apps/gavel/                   # Identity, campaigns, submissions, reviews, decisions, analytics, audit outbox
-│   │   ├── apps.py                   # Django AppConfig and lifecycle initialization
+│   │   ├── apps.py                   # Django AppConfig
 │   │   ├── audit.py                  # Atomic embedded audit intent and relay
 │   │   ├── auth.py                   # Authentication, token generation, constant-time bcrypt verification
 │   │   ├── jobs.py                   # Processing queue workers and state machines
 │   │   ├── models.py                 # MongoEngine documents, indexes, and collections
 │   │   ├── repository.py             # Database query and persistence boundary
-│   │   ├── services.py               # Domain business logic and lifecycle coordination
+│   │   ├── services/                 # Domain rules grouped by feature
+│   │   │   ├── campaigns.py          # Campaign lifecycle, ownership, and publishing
+│   │   │   ├── submissions.py        # Response ingest, processing, and pairing
+│   │   │   ├── reviews.py            # Blind claim, independence, and scoring
+│   │   │   ├── adjudications.py      # Disagreement resolution
+│   │   │   ├── analytics.py          # Results snapshots
+│   │   │   └── audit_ops.py          # Outbox drain and audit log
+│   │   ├── tests/                    # Throwaway-database suite (never gavel_db)
 │   │   ├── views.py                  # HTTP handlers and response formatting
 │   │   └── worker.py                 # Standalone background worker (jobs + audit relay)
 │   ├── apps/shared/                  # MongoDB health, API errors, rendering, timestamps
 │   ├── calendar_backend/             # Django settings, security middleware, and URL routing
 │   └── scripts/seed.py               # Deterministic demo data and reset
 ├── e2e/
-│   └── gavel.spec.js                 # Complete lifecycle test
+│   └── gavel.spec.js                 # Optional live-API walkthrough (reseeds afterward)
 ├── scripts/
 │   ├── run-backend.mjs               # Backend runner
 │   ├── run-seed.mjs                  # Seed runner
 │   ├── run-setup.mjs                 # Setup runner
 │   ├── run-worker.mjs                # Worker runner
-│   └── test-backend.py               # Isolated backend test runner
+│   ├── run-tests.mjs                 # bun test entry point
+│   └── test-backend.py               # Creates, uses, and drops a throwaway MongoDB
 ├── skills/validate/                  # Repository validation skill
 ├── transcripts/                      # AI session logs and verification records
 ├── .vscode/launch.json               # Django debugger configuration
@@ -94,8 +108,9 @@ The product uses no external component library or hosted service. Dependencies s
 - Python 3.12 (Python 3.11+ supported)
 - MongoDB 8 or later available at `127.0.0.1:27017`
 
-Acceptance and deployment require real MongoDB. Development can fall back to
-MongoMock when installed in non-production environments. Production refuses the mock fallback.
+Acceptance, development, and tests require a reachable MongoDB. If MongoDB does
+not answer within three seconds the backend exits with a clear error. There is
+no in-memory database fallback.
 
 `setup.sh` creates missing `.env` files from committed examples, prepares `.venv`, checks MongoDB, and restores the seeded baseline. The connection URI is centralized in `backend/.env` and defaults to `mongodb://127.0.0.1:27017/gavel_db`.
 
@@ -174,9 +189,16 @@ The login screen includes quick shortcuts for Elena, Maya, Jordan, and Priya; Sa
 | `bun run dev:backend` | Run Django API on port 8000. |
 | `bun run dev:frontend` | Run Vite frontend on port 3000. |
 | `cd frontend && bun run build` | Build React production bundle. |
-| `.venv/bin/python backend/manage.py test apps.gavel` | Run the complete 35-test backend test suite. |
-| `.venv/bin/python scripts/test-backend.py` | Run backend tests against an isolated temporary database. |
-| `node e2e/gavel.spec.js` | Run the complete end-to-end API and workflow verification. |
+| `bun test` | Create a throwaway `gavel_test_*` database, run campaign, review, and adjudication tests (including refusals), then drop that database. Does not use demo accounts or `gavel_db`. |
+| `bun run test:e2e` | Optional live-API walkthrough against a running app. Reseed afterward with `bun run seed`. |
+
+## Tests
+
+`bun test` is the only supported test command. It creates a unique `gavel_test_*` MongoDB database, inserts its own users (not the demo accounts), covers campaign, review, and adjudication rules including the refusals, and drops that database when it finishes. It never writes to `gavel_db`, so running tests cannot leave campaigns in the app. If MongoDB does not answer within three seconds the command fails with a clear error instead of using an in-memory database.
+
+```bash
+bun test
+```
 
 ## Architecture and security controls
 

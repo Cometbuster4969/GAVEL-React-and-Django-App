@@ -4,7 +4,11 @@
  *         review (Jordan) → opposite review (Sam) → disagreement detected →
  *         adjudicate (Priya) → complete → publish results → audit cursor pagination → archive.
  *
- * Run: node e2e/gavel.spec.js
+ * Optional live check against a running app. Prefer `bun test` for the isolated
+ * suite. This walkthrough uses demo accounts and will leave campaigns behind
+ * unless you reseed (`bun run seed`).
+ *
+ * Run: bun run test:e2e
  */
 
 const isPlaywright = typeof test !== "undefined" && typeof expect !== "undefined";

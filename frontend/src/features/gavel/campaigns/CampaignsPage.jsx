@@ -35,7 +35,7 @@ export function CampaignTable({ campaigns, onSelect }) {
 							tabIndex={onSelect ? "0" : "-1"}
 							onKeyDown={(event) => event.key === "Enter" && onSelect?.(item)}
 						>
-							<td>
+							<td data-label="Campaign">
 								<span className={`campaign-color campaign-color-${index % 4}`} />
 								<span className="table-campaign-name">
 									<strong>{item.name}</strong>
@@ -44,14 +44,14 @@ export function CampaignTable({ campaigns, onSelect }) {
 									</small>
 								</span>
 							</td>
-							<td>
+							<td data-label="Status">
 								<StatusPill status={item.status} />
 							</td>
-							<td>
+							<td data-label="Responses">
 								<strong className="response-number">{item.submissionCount}</strong>
 								<small className="response-caption">{item.queuedCount ? `${item.queuedCount} queued` : "responses"}</small>
 							</td>
-							<td>
+							<td data-label="Review progress">
 								<div className="table-progress">
 									<span
 										style={{
@@ -61,7 +61,7 @@ export function CampaignTable({ campaigns, onSelect }) {
 								</div>
 								<small className="progress-caption">{item.reviewCount} reviews</small>
 							</td>
-							<td>
+							<td data-label="">
 								{onSelect && (
 									<button
 										className="row-arrow"
