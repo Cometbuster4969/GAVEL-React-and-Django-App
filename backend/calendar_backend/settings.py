@@ -28,32 +28,36 @@ JWT_ISSUER = os.getenv("JWT_ISSUER", "gavel-api")
 JWT_AUDIENCE = os.getenv("JWT_AUDIENCE", "gavel-app")
 JWT_LIFETIME = int(os.getenv("JWT_LIFETIME_SECONDS", "7200"))  # 2h production default; 24h (86400) only for dev
 
+def _mongo_location(uri):
+    from urllib.parse import urlsplit
+
+    parts = urlsplit(uri)
+    host = parts.hostname or "127.0.0.1"
+    port = parts.port or 27017
+    name = (parts.path or "/").strip("/") or "gavel_db"
+    return f"{host}:{port}/{name}"
+
+
 # MongoDB URI: never expose credentials in URI without TLS in production
 MONGODB_URI = os.getenv("MONGODB_URI", "mongodb://127.0.0.1:27017/gavel_db")
-_use_mock = os.getenv("USE_MONGOMOCK", "false").lower() == "true"
 try:
-    mongoengine.connect(host=MONGODB_URI, uuidRepresentation="standard", connectTimeoutMS=3000, serverSelectionTimeoutMS=3000)
-    # Verify connectivity; fall back to mongomock if unavailable (e.g., CI without mongod)
-    if _use_mock:
-        raise Exception("Forced mongomock via USE_MONGOMOCK")
+    mongoengine.connect(
+        host=MONGODB_URI,
+        uuidRepresentation="standard",
+        connectTimeoutMS=3000,
+        serverSelectionTimeoutMS=3000,
+    )
     from mongoengine.connection import get_db
 
     get_db().command("ping")
-except Exception:
-    if not DEBUG:
-        raise
-    try:
-        import mongomock  # type: ignore
-
-        mongoengine.disconnect_all()
-        mongoengine.connect(
-            host=MONGODB_URI,
-            uuidRepresentation="standard",
-            mongo_client_class=mongomock.MongoClient,
-        )
-    except Exception:
-        # If mongomock also unavailable, re-raise original connection for health to report degraded
-        pass
+except Exception as exc:
+    mongoengine.disconnect_all()
+    location = _mongo_location(MONGODB_URI)
+    raise RuntimeError(
+        f"Gavel could not reach MongoDB at {location} within 3 seconds. "
+        "Start mongod (default 127.0.0.1:27017) or set MONGODB_URI, then retry. "
+        "The API will not start with an in-memory database."
+    ) from exc
 
 INSTALLED_APPS = ["corsheaders", "rest_framework", "apps.gavel.apps.GavelConfig"]
 MIDDLEWARE = [

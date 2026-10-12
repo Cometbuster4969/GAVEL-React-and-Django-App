@@ -13,7 +13,8 @@
 		"dev:backend": "node scripts/run-backend.mjs",
 		"seed": "node scripts/run-seed.mjs",
 		"worker": "node scripts/run-worker.mjs",
-		"test": "node e2e/gavel.spec.js"
+		"test": "node scripts/run-tests.mjs",
+		"test:e2e": "node e2e/gavel.spec.js"
 	},
 	"devDependencies": {
 		"concurrently": "9.2.1"

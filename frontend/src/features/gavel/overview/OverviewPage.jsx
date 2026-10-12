@@ -1,7 +1,18 @@
 import { Icon, GavelMark, PageHeading, StatCard } from "../components/ui.jsx";
-import { CampaignTable } from "./CampaignsPage.jsx";
+import { CampaignTable } from "../campaigns/CampaignsPage.jsx";
 
-export function OverviewPage({ user, campaigns, analytics, reviews, adjudications, onSelectCampaign, setActiveTab, onNewCampaign, search, busy }) {
+export function OverviewPage({
+	user,
+	campaigns,
+	analytics,
+	reviews,
+	adjudications,
+	onSelectCampaign,
+	setActiveTab,
+	onNewCampaign,
+	search,
+	busy,
+}) {
 	const active = campaigns.find((item) => item.status === "reviewing") || campaigns.find((item) => item.status === "running");
 	const assignedCount = reviews.filter((item) => item.status === "available" || item.status === "claimed").length;
 	const openCount = adjudications.filter((item) => item.status === "open").length;

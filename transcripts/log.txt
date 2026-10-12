@@ -145,3 +145,30 @@ Context:
 tool=Arena agent
 branch=arena/01a0eff9-gavel-react-and-django-app
 repo_root=/home/user/GAVEL-React-and-Django-App
+
+## [2026-10-12T05:04:32.833054+00:00] Isolate tests, split by feature, fail closed without MongoDB
+
+User Prompt (verbatim, secrets redacted):
+The main reason we could not take your submission forward is that the 13 tests run against the app's own database and rely on its demo accounts. After a run, test campaigns stay behind and show up in the app. Run the tests against a separate throwaway database that they create and clean up themselves, using one documented command, and cover the campaign, review and adjudication rules, including the refusals.
+
+On a phone-width screen the campaign table is cut off at the right. Let it scroll or stack on small screens.
+
+All backend rules sit in one file of about 1,000 lines and every screen in one file of about 2,600 lines; organise the code by feature. If MongoDB does not answer within three seconds, the backend silently switches to an in-memory database that loses everything on restart; remove that fallback and fail clearly instead.
+
+Agent Response Summary:
+Addressed the review in this build. Tests now run only through `bun test`, which creates a unique gavel_test_* MongoDB, inserts its own users (not demo accounts), covers campaign/review/adjudication rules including refusals, and drops the database. manage.py test refuses to touch gavel_db. Backend services were split by feature under apps/gavel/services/, and frontend screens moved into feature folders under features/gavel/. The silent mongomock fallback was removed so a 3-second MongoDB timeout fails with a clear error. The campaign table stacks on phone-width screens instead of clipping.
+
+Actions:
+* Split backend/apps/gavel/services.py into services/campaigns.py, submissions.py, reviews.py, adjudications.py, analytics.py, audit_ops.py, common.py
+* Moved frontend screens into features/gavel/{campaigns,reviews,adjudications,analytics,activity,overview,auth}
+* Replaced demo-account tests with isolated suite under apps/gavel/tests
+* Documented one command: bun test (scripts/run-tests.mjs -> scripts/test-backend.py)
+* Removed mongomock fallback from settings.py, setup.sh, and apps.py
+* Stacked .campaign-table on max-width 680px
+
+Context:
+tool=arena-agent
+branch=arena/549cdcb5-gavel-react-and-django-app
+repo_root=/home/user/GAVEL-React-and-Django-App
+worktree=/home/user/GAVEL-React-and-Django-App
+parent_agent=none

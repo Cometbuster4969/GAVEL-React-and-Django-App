@@ -1,4 +1,4 @@
-import { CampaignTable } from "./CampaignsPage.jsx";
+import { CampaignTable } from "../campaigns/CampaignsPage.jsx";
 import { Icon, PageHeading, StatCard } from "../components/ui.jsx";
 
 export function AnalyticsPage({ analytics, campaigns, loading }) {

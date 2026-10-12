@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Icon, Avatar, GavelMark } from "../components/ui.jsx";
+import { Icon, Avatar, GavelMark } from "./ui.jsx";
 import { NAV_ITEMS, ROLE_LABELS } from "../constants.js";
 
 export function AppShell({ user, onLogout, children, activeTab, setActiveTab, campaigns, onNewCampaign, onSearch }) {

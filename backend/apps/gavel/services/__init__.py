@@ -1,0 +1,106 @@
+"""Domain services grouped by feature.
+
+Import from ``apps.gavel.services`` as before. Campaign, review, adjudication,
+submission, analytics, and audit rules live in dedicated modules.
+"""
+
+from .adjudications import (
+    deterministic_side_for_adjudication,
+    list_adjudications,
+    public_adjudication,
+    resolve_adjudication,
+)
+from .analytics import analytics, get_published_results, public_publication, publish_results
+from .audit_ops import audit_log, drain_audit_outbox, record
+from .campaigns import (
+    create_campaign,
+    create_campaign_version,
+    delete_campaign,
+    list_campaigns,
+    transition_campaign,
+    update_campaign,
+)
+from .common import (
+    OWNER_ROLES,
+    REVIEW_ROLES,
+    campaign_case,
+    clean_text,
+    current_revision,
+    ensure_campaign,
+    ensure_owner,
+    invalidate_analytics_cache,
+    iso,
+    mark_reviewing,
+    public_campaign,
+    save_revision,
+    validate_cases,
+    validate_rubric,
+)
+from .reviews import (
+    claim_review,
+    detect_disagreement,
+    deterministic_side,
+    ensure_independent_reviewer,
+    independence_group,
+    list_reviews,
+    public_review,
+    release_review,
+    submit_review,
+)
+from .submissions import (
+    create_review_pairs,
+    ingest_submissions,
+    list_submissions,
+    process_submissions,
+    public_submission,
+    retry_submission,
+)
+
+__all__ = [
+    "OWNER_ROLES",
+    "REVIEW_ROLES",
+    "analytics",
+    "audit_log",
+    "campaign_case",
+    "claim_review",
+    "clean_text",
+    "create_campaign",
+    "create_campaign_version",
+    "create_review_pairs",
+    "current_revision",
+    "delete_campaign",
+    "detect_disagreement",
+    "deterministic_side",
+    "deterministic_side_for_adjudication",
+    "drain_audit_outbox",
+    "ensure_campaign",
+    "ensure_independent_reviewer",
+    "ensure_owner",
+    "get_published_results",
+    "independence_group",
+    "ingest_submissions",
+    "invalidate_analytics_cache",
+    "iso",
+    "list_adjudications",
+    "list_campaigns",
+    "list_reviews",
+    "list_submissions",
+    "mark_reviewing",
+    "process_submissions",
+    "public_adjudication",
+    "public_campaign",
+    "public_publication",
+    "public_review",
+    "public_submission",
+    "publish_results",
+    "record",
+    "release_review",
+    "resolve_adjudication",
+    "retry_submission",
+    "save_revision",
+    "submit_review",
+    "transition_campaign",
+    "update_campaign",
+    "validate_cases",
+    "validate_rubric",
+]

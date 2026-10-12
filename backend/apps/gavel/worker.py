@@ -8,8 +8,8 @@ bun run worker              # from the repository root
 ```
 
 The management commands (``process_queue``, ``drain_audit_outbox``) share the
-same job/audit implementation. Both entry points initialize Django normally.
-MongoMock is process-local; use real MongoDB for separate API/worker processes.
+same job/audit implementation. Both entry points initialize Django normally
+and require a reachable MongoDB.
 """
 
 import argparse

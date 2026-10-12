@@ -1407,7 +1407,10 @@ button:disabled {
 }
 .campaign-table-wrap {
 	width: 100%;
+	max-width: 100%;
+	min-width: 0;
 	overflow-x: auto;
+	-webkit-overflow-scrolling: touch;
 }
 .campaign-table,
 .submission-table {
@@ -3502,11 +3505,53 @@ button:disabled {
 	.campaign-panel > .panel-heading {
 		padding-bottom: 9px;
 	}
-	.campaign-table {
-		min-width: 540px;
+	.campaign-table-wrap {
+		overflow: visible;
 	}
-	.campaign-table tbody td {
-		height: 49px;
+	.campaign-table {
+		min-width: 0;
+	}
+	.campaign-table thead {
+		display: none;
+	}
+	.campaign-table tbody tr {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: 8px 14px;
+		height: auto;
+		padding: 12px 14px 14px;
+		border-bottom: 1px solid #f0f2ee;
+	}
+	.campaign-table tbody tr:last-child {
+		border-bottom: 0;
+	}
+	.campaign-table tbody td,
+	.campaign-table tbody td:first-child {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: 6px;
+		width: auto;
+		height: auto;
+		padding: 0;
+		border-bottom: 0;
+		white-space: normal;
+	}
+	.campaign-table tbody td:first-child {
+		flex: 1 0 100%;
+		padding-left: 0;
+	}
+	.campaign-table tbody td[data-label]:not([data-label=""]):not(:first-child)::before {
+		content: attr(data-label);
+		color: #6a746b;
+		font-size: 8px;
+		font-weight: 700;
+		letter-spacing: 0.6px;
+		text-transform: uppercase;
+	}
+	.campaign-table tbody td:last-child {
+		margin-left: auto;
 	}
 	.attention-panel {
 		min-height: 0;
